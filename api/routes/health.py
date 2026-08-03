@@ -1,13 +1,21 @@
-"""Safe operational health endpoints available during Phase 01."""
+"""Safe operational health and readiness endpoints."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.dependencies import get_app_settings
+from app.dependencies import get_app_settings, get_db
+from services.observability_service import get_system_health
 
-router = APIRouter(prefix="/health", tags=["health"])
+router = APIRouter(prefix="/health", tags=["Health"])
+
+
+@router.get("", summary="Overall system health check")
+def health_check(db: Session = Depends(get_db)) -> dict[str, object]:
+    """Report overall platform operational status."""
+    return get_system_health(db)
 
 
 @router.get("/live", summary="Process liveness")
@@ -28,7 +36,7 @@ async def readiness(
     response: Response,
     settings: Annotated[Settings, Depends(get_app_settings)],
 ) -> dict[str, object]:
-    """Expose only configuration readiness; real dependency probes arrive later."""
+    """Expose configuration readiness."""
 
     response.status_code = status.HTTP_200_OK
     return {
