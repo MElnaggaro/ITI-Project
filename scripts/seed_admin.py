@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
+# Ensure project root is on sys.path for direct script executions
+project_root = Path(__file__).resolve().parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -10,6 +17,7 @@ from app.config import get_settings
 from core.security import hash_password
 from repositories.tenant_repository import TenantRepository
 from repositories.user_repository import UserRepository
+
 
 
 def seed() -> None:
