@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from core.tenant_context import TenantContext
+from schemas.chat import IntentType
 from schemas.knowledge_bases import RetrievedEvidence
 from schemas.query_execution import ExecutionResultEnvelope
 from schemas.resolved_schema import ResolvedSchema
@@ -21,9 +22,9 @@ class AgentState:
     conversation_id: UUID
     message_id: UUID
     user_message: str
-    connection_ids: list[UUID] = field(default_factory=list)
+    database_connection_ids: list[UUID] = field(default_factory=list)
     knowledge_base_ids: list[UUID] = field(default_factory=list)
-    detected_intent: str = "general"
+    detected_intent: IntentType = "general"
     resolved_schema: ResolvedSchema | None = None
     generated_sql: str | None = None
     validated_plan: ValidatedQueryPlan | None = None

@@ -29,16 +29,16 @@ class ChatOrchestrator:
         # 1. Intent Classification
         state.detected_intent = classify_request(
             user_message=state.user_message,
-            connection_ids=state.connection_ids,
+            database_connection_ids=state.database_connection_ids,
             knowledge_base_ids=state.knowledge_base_ids,
         )
 
         intent = state.detected_intent
 
         # 2. Database Branch
-        if intent in {"database", "hybrid"} and state.connection_ids:
+        if intent in {"database", "hybrid"} and state.database_connection_ids:
             try:
-                conn_id = state.connection_ids[0]
+                conn_id = state.database_connection_ids[0]
                 state.resolved_schema = self.schema_resolver.resolve_schema(state.context, conn_id)
 
                 if not state.resolved_schema.is_empty():
@@ -67,6 +67,7 @@ class ChatOrchestrator:
                                 "citation_type": "sql",
                                 "title": "SQL Query Result",
                                 "source_reference": plan.final_sql or plan.generated_sql,
+                                "table": plan.referenced_tables[0] if plan.referenced_tables else None,
                             }
                         )
             except Exception as e:
@@ -90,6 +91,7 @@ class ChatOrchestrator:
                             "source_reference": f"Page {item.page_number or 1}",
                             "page_number": item.page_number,
                             "relevance_score": item.score,
+                            "file_name": item.file_name,
                         }
                     )
             except Exception as e:

@@ -61,8 +61,9 @@ def test_section8_api_contract_responses(client: TestClient, db_session: Session
     assert "message_id" in chat_data
     assert "conversation_id" in chat_data
     assert "answer" in chat_data
-    assert "detected_intent" in chat_data
+    assert "intent" in chat_data
     assert "sources_used" in chat_data
+    assert "citations" in chat_data
 
     # 7. GET /api/health
     health_resp = client.get("/api/health")

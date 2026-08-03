@@ -92,7 +92,7 @@ Built with **FastAPI**, **SQLAlchemy 2**, **Alembic**, **SQLGlot AST Validator**
    ```bash
    python -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r pyproject.toml
+   pip install -r requirements.txt
    ```
 
 3. **Start Infrastructure Services (Docker Compose)**:
@@ -122,7 +122,7 @@ Built with **FastAPI**, **SQLAlchemy 2**, **Alembic**, **SQLGlot AST Validator**
 
 2. **Start Celery Worker (Background File & Embedding Jobs)**:
    ```bash
-   celery -A worker.celery_app worker --loglevel=info
+   celery -A workers.celery_app worker --loglevel=info
    ```
 
 ---

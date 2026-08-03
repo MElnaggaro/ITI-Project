@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+
+from typing import cast
 
 from agents.graph import ChatOrchestrator
 from agents.state import AgentState
@@ -18,13 +20,17 @@ from models.conversation import Conversation
 from models.message import Message
 from repositories.conversation_repository import ConversationRepository
 from repositories.message_repository import MessageRepository
-from schemas.chat import ChatRequest, ChatResponse, SourceCitation
+from schemas.chat import ChatRequest, ChatResponse, Citation, IntentType, SQLDetail
 from services.citation_service import CitationService
 
 router = APIRouter(prefix="/chat", tags=["Chat Orchestrator"])
 
 
-def _get_or_create_conversation(db: Session, context: TenantContext, conv_id: UUID | None) -> Conversation:
+def _get_or_create_conversation(
+    db: Session,
+    context: TenantContext,
+    conv_id: UUID | None,
+) -> Conversation:
     conv_repo = ConversationRepository(db)
     if conv_id:
         existing = conv_repo.get_by_id(context.tenant_id, conv_id)
@@ -41,13 +47,12 @@ def _get_or_create_conversation(db: Session, context: TenantContext, conv_id: UU
     return conv_repo.create(new_conv)
 
 
-@router.post("", response_model=ChatResponse)
-def chat(
+def _execute_chat(
     payload: ChatRequest,
-    context: TenantContext = Depends(get_current_tenant_context),
-    db: Session = Depends(get_db),
+    context: TenantContext,
+    db: Session,
 ) -> ChatResponse:
-    """Execute synchronous chat pipeline across SQL and Document RAG engines."""
+    """Execute synchronous chat orchestration logic and return ChatResponse envelope."""
     conv = _get_or_create_conversation(db, context, payload.conversation_id)
     user_msg_id = uuid4()
     asst_msg_id = uuid4()
@@ -73,7 +78,7 @@ def chat(
         conversation_id=conv.id,
         message_id=asst_msg_id,
         user_message=payload.message,
-        connection_ids=payload.connection_ids,
+        database_connection_ids=payload.database_connection_ids,
         knowledge_base_ids=payload.knowledge_base_ids,
     )
 
@@ -81,7 +86,7 @@ def chat(
     final_state = orchestrator.run(state)
 
     # 3. Persist Assistant Answer Message
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     asst_msg = Message(
         id=asst_msg_id,
         tenant_id=context.tenant_id,
@@ -109,31 +114,60 @@ def chat(
             sources=final_state.sources_used,
         )
 
-    sources = [
-        SourceCitation(
-            citation_type=src.get("citation_type", "general"),
-            title=src.get("title", "Source"),
-            source_reference=src.get("source_reference", ""),
-            page_number=src.get("page_number"),
-            relevance_score=src.get("relevance_score"),
-        )
-        for src in final_state.sources_used
-    ]
+    # Build Section 9 Contract fields
+    sources_used_set = set()
+    citations_list: list[Citation] = []
 
-    gen_sql = final_state.validated_plan.final_sql if final_state.validated_plan else None
-    exec_time = final_state.execution_envelope.execution_time_ms if final_state.execution_envelope else None
-    r_count = final_state.execution_envelope.returned_row_count if final_state.execution_envelope else None
+    for src in final_state.sources_used:
+        c_type = src.get("citation_type")
+        if c_type == "sql":
+            sources_used_set.add("database")
+            citations_list.append(
+                Citation(
+                    type="database",
+                    table=src.get("table", "unknown"),
+                )
+            )
+        elif c_type == "document":
+            sources_used_set.add("documents")
+            citations_list.append(
+                Citation(
+                    type="document",
+                    file_name=src.get("file_name", src.get("title", "document")),
+                    page=src.get("page_number"),
+                )
+            )
+
+    sql_detail: SQLDetail | None = None
+    if final_state.execution_envelope and final_state.validated_plan:
+        sql_detail = SQLDetail(
+            query_execution_id=final_state.execution_envelope.execution_id,
+            query=final_state.validated_plan.final_sql or final_state.validated_plan.generated_sql,
+            row_count=final_state.execution_envelope.returned_row_count,
+        )
 
     return ChatResponse(
         message_id=asst_msg_id,
         conversation_id=conv.id,
         answer=final_state.final_answer,
-        detected_intent=final_state.detected_intent,
-        sources_used=sources,
-        generated_sql=gen_sql,
-        execution_time_ms=exec_time,
-        row_count=r_count,
+        intent=cast(IntentType, final_state.detected_intent),
+        sources_used=sorted(list(sources_used_set)),
+        sql=sql_detail,
+        citations=citations_list,
     )
+
+
+@router.post("", response_model=ChatResponse)
+def chat(
+    payload: ChatRequest,
+    context: TenantContext = Depends(get_current_tenant_context),
+    db: Session = Depends(get_db),
+) -> ChatResponse | StreamingResponse:
+    """Execute synchronous or streaming chat pipeline across SQL and Document RAG engines."""
+    if payload.stream:
+        return stream_chat(payload, context, db)
+
+    return _execute_chat(payload, context, db)
 
 
 @router.post("/stream")
@@ -143,11 +177,12 @@ def stream_chat(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Execute streaming SSE chat response with Section 9 response contract framing."""
-    chat_res = chat(payload, context, db)
+    chat_res = _execute_chat(payload, context, db)
 
     def _event_generator():
-        yield f"data: {json.dumps({'event': 'intent', 'intent': chat_res.detected_intent})}\n\n"
+        yield f"data: {json.dumps({'event': 'intent', 'intent': chat_res.intent})}\n\n"
         yield f"data: {json.dumps({'event': 'answer', 'text': chat_res.answer})}\n\n"
-        yield f"data: {json.dumps({'event': 'done', 'response': chat_res.model_dump(mode='json')})}\n\n"
+        done_payload = json.dumps({"event": "done", "response": chat_res.model_dump(mode="json")})
+        yield f"data: {done_payload}\n\n"
 
     return StreamingResponse(_event_generator(), media_type="text/event-stream")

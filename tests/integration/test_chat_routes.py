@@ -53,18 +53,18 @@ def test_chat_pipeline_endpoints(client: TestClient, db_session: Session):
     )
     assert gen_resp.status_code == 200
     gen_data = gen_resp.json()
-    assert gen_data["detected_intent"] == "general"
+    assert gen_data["intent"] == "general"
     assert "AI Assistant" in gen_data["answer"]
 
     # 2. Database intent chat
     db_resp = client.post(
         "/api/chat",
-        json={"message": "SELECT * FROM orders", "connection_ids": [str(conn.id)]},
+        json={"message": "SELECT * FROM orders", "database_connection_ids": [str(conn.id)]},
         headers=headers,
     )
     assert db_resp.status_code == 200
     db_data = db_resp.json()
-    assert db_data["detected_intent"] in {"database", "hybrid"}
+    assert db_data["intent"] in {"database", "hybrid"}
 
     # 3. Stream chat endpoint
     stream_resp = client.post(

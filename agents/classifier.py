@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from schemas.chat import IntentType
+
 
 def classify_request(
     user_message: str,
-    connection_ids: list[UUID] | None = None,
+    database_connection_ids: list[UUID] | None = None,
     knowledge_base_ids: list[UUID] | None = None,
-) -> str:
+) -> IntentType:
     """Classify user request into one of: general, database, document, hybrid, clarification."""
     msg_lower = user_message.strip().lower()
-    has_conn = bool(connection_ids)
+    has_conn = bool(database_connection_ids)
     has_kb = bool(knowledge_base_ids)
 
     # Keywords detection
