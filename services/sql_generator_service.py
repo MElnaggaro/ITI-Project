@@ -53,15 +53,25 @@ class SQLGeneratorService:
         schema_context = self.format_schema_prompt_context(resolved_schema)
         start_time = time.perf_counter()
 
-        # Rule-based candidate generation fallback for test environment / fallback mode
         table_names = list(resolved_schema.tables.keys())
-        first_table = table_names[0]
-        tbl = resolved_schema.tables[first_table]
-        col_names = list(tbl.columns.keys())
+        first_table = table_names[0] if table_names else "users"
 
-        # Select first few columns or wildcard
-        cols_clause = ", ".join(col_names[:3]) if col_names else "*"
-        candidate_sql = f"SELECT {cols_clause} FROM {tbl.schema_name}.{first_table}"
+        # 1. Try Ollama LLM (qwen3.5:4b) Generation
+        candidate_sql = ""
+        try:
+            from services.llm.ollama_service import OllamaLLMService
+            ollama_svc = OllamaLLMService()
+            if ollama_svc.is_enabled():
+                candidate_sql = ollama_svc.generate_sql(schema_context, user_prompt)
+        except Exception as err:
+            pass
+
+        # 2. Rule-based candidate fallback if LLM offline or empty
+        if not candidate_sql:
+            tbl = resolved_schema.tables[first_table]
+            col_names = list(tbl.columns.keys())
+            cols_clause = ", ".join(col_names[:3]) if col_names else "*"
+            candidate_sql = f"SELECT {cols_clause} FROM {tbl.schema_name}.{first_table}"
 
         latency = int((time.perf_counter() - start_time) * 1000)
 
@@ -71,5 +81,6 @@ class SQLGeneratorService:
             prompt_tokens=len(schema_context) // 4,
             completion_tokens=len(candidate_sql) // 4,
             latency_ms=latency,
-            referenced_table_candidates=[first_table],
+            referenced_table_candidates=table_names,
         )
+

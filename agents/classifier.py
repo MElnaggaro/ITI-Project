@@ -17,22 +17,28 @@ def classify_request(
     has_conn = bool(database_connection_ids)
     has_kb = bool(knowledge_base_ids)
 
-    # Keywords detection
-    db_keywords = {"sql", "table", "database", "orders", "users", "select", "count", "show tables", "customers", "total sales"}
-    doc_keywords = {"document", "report", "pdf", "file", "excerpt", "policy", "knowledge", "text", "summary"}
+    # Greetings & General queries check FIRST
+    greetings = {"hi", "hello", "hey", "howdy", "who are you", "what can you do", "help", "welcome"}
+    if msg_lower in greetings or any(msg_lower.startswith(g) for g in ["hi ", "hello ", "hey "]):
+        return "general"
 
     matches_db = any(kw in msg_lower for kw in db_keywords)
     matches_doc = any(kw in msg_lower for kw in doc_keywords)
 
-    if (has_conn and has_kb) or (matches_db and matches_doc):
+    if matches_db and matches_doc:
         return "hybrid"
-    elif has_conn or matches_db:
+    elif matches_db:
         return "database"
-    elif has_kb or matches_doc:
+    elif matches_doc:
         return "document"
-    elif msg_lower in {"what", "help", "hello", "hi", "hey"}:
-        return "general"
+    elif has_conn and has_kb:
+        return "hybrid"
+    elif has_conn:
+        return "database"
+    elif has_kb:
+        return "document"
     elif len(msg_lower) < 3:
         return "clarification"
 
     return "general"
+

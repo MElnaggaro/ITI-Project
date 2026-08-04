@@ -6,8 +6,11 @@ import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
 
 from api.router import api_router
 from app.config import get_settings
@@ -25,8 +28,17 @@ async def lifespan(app: FastAPI):
         "application_started",
         extra={"structured": settings.safe_summary()},
     )
+    # Auto-seed initial tenant, admin, database connection, schema cache, and vector embeddings on startup
+    try:
+        from scripts.seed_admin import seed
+        seed()
+    except Exception as seed_err:
+        logging.getLogger(__name__).warning(f"Auto-seeding startup notice: {seed_err}")
+
+
     yield
     logging.getLogger(__name__).info("application_stopped")
+
 
 
 def create_app() -> FastAPI:
@@ -79,7 +91,14 @@ def create_app() -> FastAPI:
         )
 
     application.include_router(api_router)
+
+    # Mount frontend web application at root
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    if frontend_dir.exists():
+        application.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
     return application
+
 
 
 app = create_app()

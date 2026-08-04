@@ -104,8 +104,33 @@ class ChatOrchestrator:
     def _synthesize_answer(self, state: AgentState) -> str:
         intent = state.detected_intent
 
+        sql_context = None
+        if state.execution_envelope and state.execution_envelope.rows:
+            sql_context = f"Generated SQL: {state.generated_sql}\nRows ({state.execution_envelope.returned_row_count}): {state.execution_envelope.rows[:5]}"
+
+        doc_context = None
+        if state.retrieved_evidence:
+            doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:300]}" for e in state.retrieved_evidence[:3]])
+
+        # 1. Try Ollama (qwen3.5:4b) Answer Synthesis
+        try:
+            from services.llm.ollama_service import OllamaLLMService
+            ollama_svc = OllamaLLMService()
+            if ollama_svc.is_enabled():
+                answer = ollama_svc.synthesize_answer(
+                    user_message=state.user_message,
+                    intent=intent,
+                    sql_context=sql_context,
+                    document_context=doc_context,
+                )
+                if answer:
+                    return answer
+        except Exception:
+            pass
+
+        # 2. Rule-based fallback synthesis
         if intent == "general":
-            return "Hello! I am your AI Assistant. How can I help you analyze your databases or knowledge base documents today?"
+            return "Hello! I am your Enterprise AI Assistant. How can I help you analyze your databases or knowledge base documents today?"
 
         elif intent == "clarification":
             return "Could you please specify which database connection or knowledge base you would like me to query?"
@@ -136,3 +161,4 @@ class ChatOrchestrator:
             return "No database records or document evidence matched your request."
 
         return "I have processed your request."
+

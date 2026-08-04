@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enterprise Multi-Tenant Text-to-SQL & Document Chat Platform</title>
+
+  <!-- Google Fonts: Inter & Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- GSAP for Smooth Animations -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-dark text-light antialiased selection-accent">
+
+  <!-- App Wrapper -->
+  <div id="app" class="app-layout">
+
+    <!-- Top Navigation Header -->
+    <header class="glass-header sticky-top">
+      <div class="header-inner">
+        <!-- Logo & Branding -->
+        <div class="brand-group">
+          <div class="brand-icon">
+            <i data-lucide="database-zap" class="icon-accent"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">Text-to-SQL & RAG</span>
+            <span class="brand-badge">Enterprise Platform</span>
+          </div>
+        </div>
+
+        <!-- Main Navigation Tabs -->
+        <nav class="main-nav">
+          <button class="nav-btn active" data-tab="chat-tab">
+            <i data-lucide="message-square-code"></i>
+            <span>AI Orchestrator</span>
+          </button>
+          <button class="nav-btn" data-tab="connections-tab">
+            <i data-lucide="database"></i>
+            <span>DB Connections</span>
+          </button>
+          <button class="nav-btn" data-tab="files-tab">
+            <i data-lucide="folder-archive"></i>
+            <span>Knowledge Base</span>
+          </button>
+          <button class="nav-btn" data-tab="rbac-tab">
+            <i data-lucide="shield-check"></i>
+            <span>Permissions & RBAC</span>
+          </button>
+          <button class="nav-btn" data-tab="observability-tab">
+            <i data-lucide="activity"></i>
+            <span>Observability</span>
+          </button>
+        </nav>
+
+        <!-- System Health & User Pill -->
+        <div class="header-actions">
+          <div class="health-indicator" id="health-badge" title="Click to view health metrics">
+            <span class="pulse-dot green"></span>
+            <span class="health-text">API Online</span>
+          </div>
+
+          <div class="user-pill glass-card" id="user-pill">
+            <div class="user-avatar">
+              <i data-lucide="user-check"></i>
+            </div>
+            <div class="user-info">
+              <span class="user-name" id="display-user-name">Tenant Admin</span>
+              <span class="tenant-tag" id="display-tenant-code">demo-tenant</span>
+            </div>
+            <button class="icon-btn" id="btn-login-modal" title="Switch Account / Token">
+              <i data-lucide="key-round"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-container">
+
+      <!-- ============================================================ -->
+      <!-- TAB 1: AI CHAT ORCHESTRATOR                                   -->
+      <!-- ============================================================ -->
+      <section id="chat-tab" class="tab-panel active">
+        <div class="chat-workspace">
+
+          <!-- Sidebar: Conversations & Active Sources -->
+          <aside class="chat-sidebar glass-panel">
+            <div class="sidebar-section-header">
+              <h3><i data-lucide="layers"></i> Active Context</h3>
+              <button class="btn-sm btn-primary" id="btn-new-conversation">
+                <i data-lucide="plus"></i> New Chat
+              </button>
+            </div>
+
+            <!-- Active Database Connections Selector -->
+            <div class="context-group">
+              <label class="input-label"><i data-lucide="database"></i> Query Database</label>
+              <select id="chat-connection-select" class="form-select">
+                <option value="">-- No Database Connection --</option>
+              </select>
+            </div>
+
+            <!-- Active Knowledge Bases Selector -->
+            <div class="context-group">
+              <label class="input-label"><i data-lucide="book-open"></i> Knowledge Base (RAG)</label>
+              <select id="chat-kb-select" class="form-select">
+                <option value="">-- No Knowledge Base --</option>
+              </select>
+            </div>
+
+            <!-- Streaming Toggle -->
+            <div class="context-group flex-between">
+              <span class="input-label"><i data-lucide="zap"></i> SSE Stream Response</span>
+              <label class="switch">
+                <input type="checkbox" id="chat-stream-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <!-- Quick Demo Prompts -->
+            <div class="quick-prompts-section">
+              <label class="input-label"><i data-lucide="sparkles"></i> Demo Quick Prompts</label>
+              <div class="prompt-chips">
+                <button class="prompt-chip" data-prompt="How many total sales orders and revenue do we have per customer?">
+                  <i data-lucide="database"></i> Text-to-SQL Sales Query
+                </button>
+                <button class="prompt-chip" data-prompt="What are the key terms, obligations, and penalties mentioned in the uploaded contract document?">
+                  <i data-lucide="file-text"></i> Document RAG Contract Terms
+                </button>
+                <button class="prompt-chip" data-prompt="Compare total invoice values from the database with the approved contract limits in the uploaded documents.">
+                  <i data-lucide="git-compare"></i> Hybrid Database & RAG Query
+                </button>
+              </div>
+            </div>
+          </aside>
+
+          <!-- Main Chat Interface -->
+          <div class="chat-main glass-panel">
+            <!-- Chat Thread Header -->
+            <div class="chat-thread-header">
+              <div class="chat-title-group">
+                <h2 id="chat-title">Demo Workspace Session</h2>
+                <span class="status-badge green"><i data-lucide="check-circle2"></i> LangGraph Agent Ready</span>
+              </div>
+              <div class="chat-actions">
+                <button class="icon-btn" id="btn-clear-chat" title="Clear Chat History">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Messages Scroll Area -->
+            <div class="messages-container" id="messages-container">
+              <!-- Welcome Message -->
+              <div class="message-wrapper assistant">
+                <div class="message-avatar">
+                  <i data-lucide="bot"></i>
+                </div>
+                <div class="message-bubble glass-card">
+                  <div class="message-header">
+                    <span class="bot-name">LangGraph AI Orchestrator</span>
+                    <span class="badge intent-badge general">General</span>
+                  </div>
+                  <div class="message-content">
+                    <p>Welcome! I am your Enterprise Multi-Tenant AI Assistant. I can seamlessly analyze live databases via <strong>Text-to-SQL</strong>, retrieve knowledge from <strong>Uploaded Documents</strong>, or perform <strong>Hybrid Analysis</strong> across both data sources with strict row & column security filters.</p>
+                    <p class="text-muted text-sm mt-2">Try selecting a quick prompt on the left or type a question below!</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input Box Container -->
+            <div class="chat-input-wrapper">
+              <form id="chat-form" class="chat-input-form">
+                <textarea id="chat-input" class="chat-textarea" placeholder="Ask any database or document question... (e.g. 'Show revenue by tenant' or 'Summarize NDA')" rows="2" required></textarea>
+                <button type="submit" id="chat-submit-btn" class="btn-submit">
+                  <i data-lucide="send"></i>
+                  <span>Send</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 2: DATABASE CONNECTIONS & SCHEMA EXPLORER                -->
+      <!-- ============================================================ -->
+      <section id="connections-tab" class="tab-panel">
+        <div class="panel-header glass-panel">
+          <div>
+            <h2><i data-lucide="database"></i> Live Database Connections</h2>
+            <p class="subtitle">Connect live customer databases with encrypted credentials and runtime schema discovery.</p>
+          </div>
+          <button class="btn-primary" id="btn-open-add-connection">
+            <i data-lucide="plus-circle"></i> Add Connection
+          </button>
+        </div>
+
+        <div class="grid-2-col mt-4">
+          <!-- Connections List -->
+          <div class="glass-panel">
+            <div class="card-header">
+              <h3>Configured Connections</h3>
+              <span class="badge blue" id="connection-count">0 Connections</span>
+            </div>
+            <div class="connection-list" id="connection-list-container">
+              <div class="empty-state">
+                <i data-lucide="database-off"></i>
+                <p>No database connections found. Click 'Add Connection' to configure one.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Schema Introspection Tree -->
+          <div class="glass-panel">
+            <div class="card-header">
+              <h3>Schema Introspection & Metadata Cache</h3>
+              <button class="btn-sm btn-outline" id="btn-sync-selected-schema">
+                <i data-lucide="refresh-cw"></i> Sync Selected Schema
+              </button>
+            </div>
+            <div class="schema-tree-container" id="schema-tree-container">
+              <div class="empty-state">
+                <i data-lucide="network"></i>
+                <p>Select a database connection to inspect cached schemas, tables, and columns.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 3: KNOWLEDGE BASE & DOCUMENT MANAGEMENT                  -->
+      <!-- ============================================================ -->
+      <section id="files-tab" class="tab-panel">
+        <div class="panel-header glass-panel">
+          <div>
+            <h2><i data-lucide="folder-archive"></i> Knowledge Bases & Documents</h2>
+            <p class="subtitle">Upload PDF, Word, Excel, CSV, or Text documents for vector embedding and RAG retrieval.</p>
+          </div>
+          <div class="btn-group">
+            <button class="btn-outline" id="btn-open-create-kb">
+              <i data-lucide="folder-plus"></i> Create Knowledge Base
+            </button>
+          </div>
+        </div>
+
+        <div class="grid-3-col mt-4">
+          <!-- File Upload Dropzone Panel -->
+          <div class="glass-panel col-span-1">
+            <div class="card-header">
+              <h3><i data-lucide="upload-cloud"></i> Upload Document</h3>
+            </div>
+            <form id="upload-file-form" class="upload-form">
+              <div class="form-group">
+                <label class="input-label">Target Knowledge Base</label>
+                <select id="upload-kb-select" class="form-select" required>
+                  <option value="">-- Select Knowledge Base --</option>
+                </select>
+              </div>
+
+              <!-- Drag & Drop Zone -->
+              <div class="dropzone" id="file-dropzone">
+                <i data-lucide="file-up" class="dropzone-icon"></i>
+                <p class="dropzone-title">Drag & Drop files here</p>
+                <p class="dropzone-subtitle">Supports PDF, DOCX, XLSX, CSV, TXT (Max 25MB)</p>
+                <input type="file" id="file-input" class="file-input-hidden" accept=".pdf,.docx,.xlsx,.csv,.txt">
+                <button type="button" class="btn-sm btn-outline mt-2" onclick="document.getElementById('file-input').click()">Browse File</button>
+              </div>
+              <div id="file-selected-name" class="file-selected-pill hidden"></div>
+
+              <button type="submit" id="btn-upload-submit" class="btn-primary full-width mt-3" disabled>
+                <i data-lucide="upload"></i> Upload & Process (Celery Worker)
+              </button>
+            </form>
+          </div>
+
+          <!-- Knowledge Bases & Files List -->
+          <div class="glass-panel col-span-2">
+            <div class="card-header">
+              <h3>Uploaded Documents & Processing Status</h3>
+              <button class="btn-sm btn-outline" id="btn-refresh-files">
+                <i data-lucide="refresh-cw"></i> Refresh
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>File Name</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                    <th>Pages / Text</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="files-table-body">
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No documents uploaded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 4: PERMISSIONS & RBAC MATRIX                             -->
+      <!-- ============================================================ -->
+      <section id="rbac-tab" class="tab-panel">
+        <div class="panel-header glass-panel">
+          <div>
+            <h2><i data-lucide="shield-check"></i> Security & Permission Controls</h2>
+            <p class="subtitle">Manage Roles, Table-Level Permissions, Column-Level Data Masking, and Row-Level Filters.</p>
+          </div>
+          <button class="btn-primary" id="btn-open-add-role">
+            <i data-lucide="user-plus"></i> Create Role
+          </button>
+        </div>
+
+        <div class="grid-2-col mt-4">
+          <!-- Roles & Permissions Matrix -->
+          <div class="glass-panel">
+            <div class="card-header">
+              <h3>Tenant Roles</h3>
+              <span class="badge purple" id="roles-count">0 Roles</span>
+            </div>
+            <div class="roles-list" id="roles-list-container">
+              <!-- Roles render here -->
+            </div>
+          </div>
+
+          <!-- Table & Column Permission Rules Configurator -->
+          <div class="glass-panel">
+            <div class="card-header">
+              <h3>Table & Column Security Rules</h3>
+            </div>
+            <div id="rbac-rules-container">
+              <div class="empty-state">
+                <i data-lucide="lock"></i>
+                <p>Configure granular table permissions and data masking policies for role enforcement.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <!-- TAB 5: OBSERVABILITY & AUDIT LOGS                             -->
+      <!-- ============================================================ -->
+      <section id="observability-tab" class="tab-panel">
+        <div class="panel-header glass-panel">
+          <div>
+            <h2><i data-lucide="activity"></i> Observability & Audit Trail</h2>
+            <p class="subtitle">Monitor system health, inspect generated SQL execution traces, and view compliance audit logs.</p>
+          </div>
+          <div class="btn-group">
+            <a href="http://localhost:3000" target="_blank" class="btn-outline">
+              <i data-lucide="external-link"></i> Grafana Dashboard
+            </a>
+            <a href="http://localhost:9001" target="_blank" class="btn-outline">
+              <i data-lucide="external-link"></i> MinIO Object Store
+            </a>
+          </div>
+        </div>
+
+        <!-- Metrics Grid Cards -->
+        <div class="metrics-grid mt-4">
+          <div class="metric-card glass-card">
+            <div class="metric-icon blue"><i data-lucide="cpu"></i></div>
+            <div class="metric-details">
+              <span class="metric-label">API Status</span>
+              <span class="metric-value green" id="metric-api-status">Healthy</span>
+            </div>
+          </div>
+
+          <div class="metric-card glass-card">
+            <div class="metric-icon purple"><i data-lucide="database"></i></div>
+            <div class="metric-details">
+              <span class="metric-label">PostgreSQL Database</span>
+              <span class="metric-value green">Connected (pgvector)</span>
+            </div>
+          </div>
+
+          <div class="metric-card glass-card">
+            <div class="metric-icon emerald"><i data-lucide="hard-drive"></i></div>
+            <div class="metric-details">
+              <span class="metric-label">Vector Store (Qdrant)</span>
+              <span class="metric-value green">Operational (1024 dims)</span>
+            </div>
+          </div>
+
+          <div class="metric-card glass-card">
+            <div class="metric-icon orange"><i data-lucide="box"></i></div>
+            <div class="metric-details">
+              <span class="metric-label">Object Storage (MinIO)</span>
+              <span class="metric-value green">Bucket Online</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit & Query Executions Table -->
+        <div class="glass-panel mt-4">
+          <div class="card-header">
+            <h3>Recent Query Executions & AST Validation Traces</h3>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Intent</th>
+                  <th>Generated SQL</th>
+                  <th>Validation</th>
+                  <th>Row Count</th>
+                  <th>Latency</th>
+                </tr>
+              </thead>
+              <tbody id="executions-table-body">
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No recent query executions recorded.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MODAL DIALOGS                                                -->
+  <!-- ============================================================ -->
+
+  <!-- Login Modal -->
+  <div class="modal-overlay hidden" id="modal-login">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i data-lucide="key-round"></i> Authenticate & Token Rotation</h3>
+        <button class="icon-btn modal-close" onclick="document.getElementById('modal-login').classList.add('hidden')">&times;</button>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label class="input-label">Tenant Code</label>
+          <input type="text" id="login-tenant-code" class="form-input" value="demo-tenant" required>
+        </div>
+        <div class="form-group">
+          <label class="input-label">Email Address</label>
+          <input type="email" id="login-email" class="form-input" value="admin@demo.com" required>
+        </div>
+        <div class="form-group">
+          <label class="input-label">Password</label>
+          <input type="password" id="login-password" class="form-input" value="Admin123456!" required>
+        </div>
+        <button type="submit" class="btn-primary full-width mt-3">
+          <i data-lucide="log-in"></i> Sign In & Issue Token
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Connection Modal -->
+  <div class="modal-overlay hidden" id="modal-add-connection">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i data-lucide="database"></i> Add Live Database Connection</h3>
+        <button class="icon-btn modal-close" onclick="document.getElementById('modal-add-connection').classList.add('hidden')">&times;</button>
+      </div>
+      <form id="add-connection-form">
+        <div class="form-group">
+          <label class="input-label">Connection Name</label>
+          <input type="text" id="conn-name" class="form-input" placeholder="e.g. Production Sales DB" required>
+        </div>
+        <div class="grid-2-col">
+          <div class="form-group">
+            <label class="input-label">Database Type</label>
+            <select id="conn-type" class="form-select">
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="sqlserver">SQL Server</option>
+              <option value="oracle">Oracle</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="input-label">Host</label>
+            <input type="text" id="conn-host" class="form-input" placeholder="localhost or postgres" value="postgres" required>
+          </div>
+        </div>
+        <div class="grid-2-col">
+          <div class="form-group">
+            <label class="input-label">Port</label>
+            <input type="number" id="conn-port" class="form-input" value="5432" required>
+          </div>
+          <div class="form-group">
+            <label class="input-label">Database Name</label>
+            <input type="text" id="conn-dbname" class="form-input" placeholder="platform_db" value="platform_db" required>
+          </div>
+        </div>
+        <div class="grid-2-col">
+          <div class="form-group">
+            <label class="input-label">Username</label>
+            <input type="text" id="conn-username" class="form-input" value="postgres" required>
+          </div>
+          <div class="form-group">
+            <label class="input-label">Password</label>
+            <input type="password" id="conn-password" class="form-input" value="postgres" required>
+          </div>
+        </div>
+        <div class="alert-info-sm mt-2">
+          <i data-lucide="shield-check"></i> Credentials will be encrypted using 256-bit Fernet keys before storage.
+        </div>
+        <button type="submit" class="btn-primary full-width mt-3">
+          <i data-lucide="save"></i> Save & Encrypt Connection
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Knowledge Base Modal -->
+  <div class="modal-overlay hidden" id="modal-create-kb">
+    <div class="modal-card glass-card">
+      <div class="modal-header">
+        <h3><i data-lucide="folder-plus"></i> Create Knowledge Base</h3>
+        <button class="icon-btn modal-close" onclick="document.getElementById('modal-create-kb').classList.add('hidden')">&times;</button>
+      </div>
+      <form id="create-kb-form">
+        <div class="form-group">
+          <label class="input-label">Knowledge Base Name</label>
+          <input type="text" id="kb-name" class="form-input" placeholder="e.g. Legal Contracts & NDAs" required>
+        </div>
+        <div class="form-group">
+          <label class="input-label">Description</label>
+          <textarea id="kb-desc" class="form-input" placeholder="Knowledge base for corporate contracts and policy documents" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn-primary full-width mt-3">
+          <i data-lucide="plus"></i> Create Knowledge Base
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Main JavaScript App -->
+  <script src="/js/app.js"></script>
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+  </script>
+</body>
+</html>
