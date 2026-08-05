@@ -10,13 +10,23 @@ project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.config import get_settings
 from core.security import hash_password
 from repositories.tenant_repository import TenantRepository
 from repositories.user_repository import UserRepository
+from models.database_connection import DatabaseConnection
+from repositories.connection_repository import ConnectionRepository
+from core.encryption import encrypt_secret
+from core.tenant_context import TenantContext
+from services.schema_sync_service import SchemaSyncService
+from models.knowledge_base import KnowledgeBase
+from repositories.knowledge_base_repository import KnowledgeBaseRepository
+from repositories.file_repository import FileRepository
+from services.file_service import FileService
+from services.document_pipeline_service import DocumentPipelineService
 
 
 
@@ -55,34 +65,43 @@ def seed() -> None:
             )
             session.commit()
             print(f"Created Admin User: {user.email} -> ID: {user.id}")
-        # 3. Seed default database connections
-        from models.database_connection import DatabaseConnection
-        from repositories.connection_repository import ConnectionRepository
-        from core.encryption import encrypt_secret
-        from core.tenant_context import TenantContext
-
+        # 3. Seed database connections
         conn_repo = ConnectionRepository(session)
-        
-        connections_to_seed = [
-            {"name": "Platform PostgreSQL DB", "db_name": "platform_db"},
-            {"name": "Sales PostgreSQL DB", "db_name": "platform_db"},
-            {"name": "Analytics PostgreSQL DB", "db_name": "platform_db"}
+
+        connections_to_seed: list[dict[str, str | int]] = [
+            {"name": "Platform PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
+            {"name": "Sales PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
+            {"name": "Analytics PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
+            {"name": "Marketing MySQL DB", "db_name": "marketing_db", "type": "mysql", "port": 3306},
         ]
-        
-        seeded_conns = []
+
+        # Create some dummy tables to make the database look "full"
+        session.execute(text("CREATE TABLE IF NOT EXISTS sales_orders (id SERIAL PRIMARY KEY, amount INT, order_date DATE);"))
+        session.execute(text("CREATE TABLE IF NOT EXISTS analytics_events (id SERIAL PRIMARY KEY, event_type VARCHAR(50), user_id INT);"))
+        session.execute(text("CREATE TABLE IF NOT EXISTS marketing_campaigns (id SERIAL PRIMARY KEY, name VARCHAR(100), budget INT);"))
+        session.execute(text("CREATE TABLE IF NOT EXISTS customer_profiles (id SERIAL PRIMARY KEY, name VARCHAR(100), email VARCHAR(100), phone VARCHAR(20));"))
+        session.execute(text("CREATE TABLE IF NOT EXISTS inventory_items (id SERIAL PRIMARY KEY, sku VARCHAR(50), quantity INT, price DECIMAL);"))
+        session.commit()
+
+        seeded_conns: list[DatabaseConnection] = []
         for c_data in connections_to_seed:
-            conn = conn_repo.get_by_name(tenant.id, c_data["name"])
+            conn_name = str(c_data["name"])
+            db_type = str(c_data["type"])
+            db_name = str(c_data["db_name"])
+            db_port = int(c_data["port"])
+
+            conn = conn_repo.get_by_name(tenant.id, conn_name)
             if not conn:
                 conn = DatabaseConnection(
                     tenant_id=tenant.id,
                     created_by=user.id,
-                    name=c_data["name"],
-                    database_type="postgresql",
-                    host="postgres",
-                    port=5432,
-                    database_name=c_data["db_name"],
-                    username="postgres",
-                    encrypted_password=encrypt_secret("postgres", tenant.id),
+                    name=conn_name,
+                    database_type=db_type,
+                    host="postgres" if db_type == "postgresql" else "mysql-host",
+                    port=db_port,
+                    database_name=db_name,
+                    username="postgres" if db_type == "postgresql" else "root",
+                    encrypted_password=encrypt_secret("password", tenant.id),
                     ssl_enabled=False,
                     status="active",
                     schema_sync_status="completed",
@@ -95,29 +114,26 @@ def seed() -> None:
                 print(f"Database Connection already exists: {conn.name} -> ID: {conn.id}")
             seeded_conns.append(conn)
 
-        # We will just use the first one for schema sync below, or we could sync all of them.
-        conn = seeded_conns[0]
 
-        # 4. Sync Schema for Connection
-        try:
-            from services.schema_sync_service import SchemaSyncService
-            t_context = TenantContext(
-                tenant_id=tenant.id,
-                user_id=user.id,
-                is_tenant_admin=True,
-            )
-            sync_service = SchemaSyncService(session)
-            sync_res = sync_service.sync_schema(t_context, conn.id)
-            session.commit()
-            print(f"Synced Schema: {sync_res}")
-
-        except Exception as sync_err:
-            print(f"Schema sync notice: {sync_err}", file=sys.stderr)
+        # 4. Sync Schema for All Connections
+        t_context = TenantContext(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            is_tenant_admin=True,
+        )
+        sync_service = SchemaSyncService(session)
+        for c in seeded_conns:
+            if c.database_type == "mysql":
+                print(f"Skipping schema sync for {c.name} (mock database).")
+                continue
+            try:
+                sync_res = sync_service.sync_schema(t_context, c.id)
+                session.commit()
+                print(f"Synced Schema for {c.name}: {sync_res}")
+            except Exception as sync_err:
+                print(f"Schema sync notice for {c.name}: {sync_err}", file=sys.stderr)
 
         # 5. Seed default knowledge base
-        from models.knowledge_base import KnowledgeBase
-        from repositories.knowledge_base_repository import KnowledgeBaseRepository
-
         kb_repo = KnowledgeBaseRepository(session)
         kb = kb_repo.get_by_name(tenant.id, "Platform Specifications & Requirements")
         if not kb:
@@ -134,36 +150,41 @@ def seed() -> None:
         else:
             print(f"Knowledge Base already exists: {kb.name} -> ID: {kb.id}")
 
-        # 6. Seed & Index Assignment PDF into Qdrant Vector Store
-        pdf_path = project_root / "Text_to_SQL_and_Document_Chat_Assignment.pdf"
-        if pdf_path.exists():
-            from repositories.file_repository import FileRepository
-            from services.file_service import FileService
-            from services.document_pipeline_service import DocumentPipelineService
+        # 6. Seed & Index Files into Qdrant Vector Store
+        files_to_seed = [
+            "Text_to_SQL_and_Document_Chat_Assignment.pdf",
+            "large_knowledge_base.txt",
+            "test_kb_doc1.txt",
+            "test_kb_data2.csv"
+        ]
+        
+        file_repo = FileRepository(session)
+        file_svc = FileService(session)
+        pipeline_svc = DocumentPipelineService(session)
+        existing_files = file_repo.list_by_tenant(tenant.id)
+        
+        for filename in files_to_seed:
+            file_path = project_root / filename
+            if file_path.exists():
+                existing_file = next((f for f in existing_files if f.original_name == filename), None)
+                if not existing_file:
+                    file_bytes = file_path.read_bytes()
+                    content_type = "text/plain" if filename.endswith(".txt") else "text/csv" if filename.endswith(".csv") else "application/pdf"
+                    uploaded_file = file_svc.upload_file(
+                        context=t_context,
+                        file_bytes=file_bytes,
+                        filename=filename,
+                        content_type=content_type,
+                        knowledge_base_id=kb.id,
+                    )
+                    session.commit()
+                    print(f"Uploaded File: {uploaded_file.original_name} -> ID: {uploaded_file.id}")
 
-            file_repo = FileRepository(session)
-            existing_files = file_repo.list_by_tenant(tenant.id)
-            existing_file = next((f for f in existing_files if f.original_name == "Text_to_SQL_and_Document_Chat_Assignment.pdf"), None)
-
-            if not existing_file:
-                file_svc = FileService(session)
-                pdf_bytes = pdf_path.read_bytes()
-                uploaded_file = file_svc.upload_file(
-                    context=t_context,
-                    file_bytes=pdf_bytes,
-                    filename="Text_to_SQL_and_Document_Chat_Assignment.pdf",
-                    content_type="application/pdf",
-                    knowledge_base_id=kb.id,
-                )
-                session.commit()
-                print(f"Uploaded Assignment PDF: {uploaded_file.original_name} -> ID: {uploaded_file.id}")
-
-                pipeline_svc = DocumentPipelineService(session)
-                proc_res = pipeline_svc.process_file(t_context, uploaded_file.id)
-                session.commit()
-                print(f"Indexed PDF into Qdrant Vector Store: {proc_res}")
-            else:
-                print(f"Assignment PDF already indexed: {existing_file.original_name}")
+                    proc_res = pipeline_svc.process_file(t_context, uploaded_file.id)
+                    session.commit()
+                    print(f"Indexed File into Qdrant Vector Store: {proc_res}")
+                else:
+                    print(f"File already indexed: {existing_file.original_name}")
 
 
     except Exception as e:

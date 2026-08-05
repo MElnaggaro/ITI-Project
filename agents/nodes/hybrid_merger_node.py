@@ -21,8 +21,11 @@ def hybrid_merger_node(state: AgentState) -> AgentState:
         parts.append("Document Evidence:\n- " + "\n- ".join(excerpts))
 
     if parts:
-        state.final_answer = "Grounded Hybrid Response:\n\n" + "\n\n".join(parts)
+        # We don't overwrite state.final_answer here. 
+        # We let the LLM synthesize it in the graph.
+        pass
     else:
+        # Only set final_answer if absolutely nothing was found, short-circuiting the LLM
         state.final_answer = "No matching database records or document evidence were found for your request."
 
     return state

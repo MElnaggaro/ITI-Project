@@ -58,22 +58,13 @@ class SQLGeneratorService:
         table_names = list(resolved_schema.tables.keys())
         first_table = table_names[0] if table_names else "users"
 
-        # 1. Try Ollama LLM (qwen3.5:4b) Generation
-        candidate_sql = ""
-        try:
-            from services.llm.ollama_service import OllamaLLMService
-            ollama_svc = OllamaLLMService()
-            if ollama_svc.is_enabled():
-                candidate_sql = ollama_svc.generate_sql(schema_context, user_prompt)
-        except Exception as err:
-            pass
-
-        # 2. Rule-based candidate fallback if LLM offline or empty
-        if not candidate_sql:
-            tbl = resolved_schema.tables[first_table]
-            col_names = list(tbl.columns.keys())
-            cols_clause = ", ".join(col_names[:3]) if col_names else "*"
-            candidate_sql = f"SELECT {cols_clause} FROM {tbl.schema_name}.{first_table}"
+        # 1. Try Ollama LLM (qwen2.5:0.5b) Generation
+        from services.llm.ollama_service import OllamaLLMService
+        ollama_svc = OllamaLLMService()
+        if ollama_svc.is_enabled():
+            candidate_sql = ollama_svc.generate_sql(schema_context, user_prompt)
+        else:
+            raise RuntimeError("LLM is disabled or not configured.")
 
         latency = int((time.perf_counter() - start_time) * 1000)
 

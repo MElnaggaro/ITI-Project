@@ -64,6 +64,9 @@ class ChatOrchestrator:
     def _synthesize_answer(self, state: AgentState) -> str:
         intent = state.detected_intent
 
+        if intent in ("general", "clarification"):
+            return ""
+
         sql_context = None
         if state.execution_envelope and state.execution_envelope.rows:
             sql_context = f"Generated SQL: {state.generated_sql}\nRows ({state.execution_envelope.returned_row_count}): {state.execution_envelope.rows[:5]}"
@@ -72,7 +75,7 @@ class ChatOrchestrator:
         if state.retrieved_evidence:
             doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:300]}" for e in state.retrieved_evidence[:3]])
 
-        # Try Ollama (qwen3.5:4b) Answer Synthesis if available
+        # Try Ollama (qwen2.5:0.5b) Answer Synthesis if available
         try:
             from services.llm.ollama_service import OllamaLLMService
 
@@ -89,8 +92,12 @@ class ChatOrchestrator:
                     if "Final answer:" in ans_clean:
                         ans_clean = ans_clean.split("Final answer:")[-1].strip()
                     return ans_clean
-        except Exception:
-            pass
+        except Exception as e:
+            # Capture the error on the state so the final_response_node can format a fallback
+            if not state.error_message:
+                state.error_message = str(e)
+            elif str(e) not in state.error_message:
+                state.error_message += f"\n{str(e)}"
 
         return ""
 

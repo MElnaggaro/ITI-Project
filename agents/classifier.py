@@ -30,8 +30,16 @@ def classify_request(
     has_kb = bool(knowledge_base_ids)
 
     # Greetings & General queries check FIRST
-    greetings = {"hi", "hello", "hey", "howdy", "who are you", "what can you do", "help", "welcome"}
-    if msg_lower in greetings or any(msg_lower.startswith(g) for g in ["hi ", "hello ", "hey "]):
+    greetings = {
+        "hi", "hello", "hey", "howdy", "who are you", "what can you do", "help", "welcome",
+        "مرحبا", "ازيك", "السلام عليكم", "مساعدة", "اهلا"
+    }
+    
+    # Strip punctuation for cleaner greeting matching
+    import string
+    msg_clean = msg_lower.translate(str.maketrans('', '', string.punctuation)).strip()
+    
+    if msg_clean in greetings or any(msg_clean.startswith(g) for g in ["hi ", "hello ", "hey ", "مرحبا ", "ازيك ", "اهلا "]):
         return "general"
 
     tokens = set(re.findall(r"\b\w+\b", msg_lower))
