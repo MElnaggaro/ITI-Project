@@ -125,6 +125,36 @@ class PermissionService:
             effective_grants = [g for g in role_grants if g.can_read]
 
         if not effective_grants:
+            from models.user import User
+            user_obj = self.session.scalar(
+                select(User).where(User.id == user_id).where(User.tenant_id == tenant_id)
+            )
+            if user_obj and user_obj.is_tenant_admin:
+                cols = list(
+                    self.session.scalars(
+                        select(DatabaseColumn).where(DatabaseColumn.table_id == table_id)
+                    ).all()
+                )
+                col_rules = {
+                    c.column_name: EffectiveColumnPermission(
+                        column_id=c.id,
+                        column_name=c.column_name,
+                        can_read=True,
+                        can_filter=True,
+                        can_aggregate=True,
+                        mask_type=None,
+                    )
+                    for c in cols
+                }
+                return EffectiveTablePermission(
+                    can_read=True,
+                    can_insert=True,
+                    can_update=True,
+                    can_delete=True,
+                    effective_row_filters=[],
+                    column_rules=col_rules,
+                )
+
             return EffectiveTablePermission(can_read=False, can_insert=False, can_update=False, can_delete=False)
 
         # Combine row filters from effective read grants
