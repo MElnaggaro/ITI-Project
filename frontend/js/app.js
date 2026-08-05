@@ -281,12 +281,12 @@
       state.connections.forEach((conn) => {
         optionsHtml += `
           <div>
-            <input type="checkbox" value="${conn.id}" id="conn_${conn.id}">
+            <input type="checkbox" value="${conn.id}" id="conn_${conn.id}" checked>
             <label for="conn_${conn.id}">${escapeHtml(conn.name)}</label>
           </div>
         `;
       });
-      elements.chatConnectionSelectedText.textContent = '0 Databases Selected';
+      elements.chatConnectionSelectedText.textContent = state.connections.length === 1 ? state.connections[0].name : `${state.connections.length} Databases Selected`;
     }
     
     elements.chatConnectionOptions.innerHTML = optionsHtml;
@@ -400,12 +400,12 @@
       state.knowledgeBases.forEach((kb) => {
         optionsHtml += `
           <div>
-            <input type="checkbox" value="${kb.id}" id="kb_${kb.id}">
+            <input type="checkbox" value="${kb.id}" id="kb_${kb.id}" checked>
             <label for="kb_${kb.id}">${escapeHtml(kb.name)}</label>
           </div>
         `;
       });
-      elements.chatKbSelectedText.textContent = '0 KBs Selected';
+      elements.chatKbSelectedText.textContent = state.knowledgeBases.length === 1 ? state.knowledgeBases[0].name : `${state.knowledgeBases.length} KBs Selected`;
     }
 
     elements.chatKbOptions.innerHTML = optionsHtml;

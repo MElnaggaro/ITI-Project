@@ -70,9 +70,6 @@ def seed() -> None:
 
         connections_to_seed: list[dict[str, str | int]] = [
             {"name": "Platform PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
-            {"name": "Sales PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
-            {"name": "Analytics PostgreSQL DB", "db_name": "platform_db", "type": "postgresql", "port": 5432},
-            {"name": "Marketing MySQL DB", "db_name": "marketing_db", "type": "mysql", "port": 3306},
         ]
 
         # Create some dummy tables to make the database look "full"
