@@ -880,6 +880,12 @@
 
     // Chat Form & Quick Prompts
     elements.chatForm.addEventListener('submit', sendChatMessage);
+    elements.chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        elements.chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
+    });
     elements.btnNewChat.addEventListener('click', () => {
       state.conversationId = null;
       elements.messagesContainer.innerHTML = '';

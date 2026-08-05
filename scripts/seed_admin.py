@@ -55,35 +55,48 @@ def seed() -> None:
             )
             session.commit()
             print(f"Created Admin User: {user.email} -> ID: {user.id}")
-        # 3. Seed default database connection
+        # 3. Seed default database connections
         from models.database_connection import DatabaseConnection
         from repositories.connection_repository import ConnectionRepository
         from core.encryption import encrypt_secret
         from core.tenant_context import TenantContext
 
         conn_repo = ConnectionRepository(session)
-        conn = conn_repo.get_by_name(tenant.id, "Platform PostgreSQL DB")
-        if not conn:
-            conn = DatabaseConnection(
-                tenant_id=tenant.id,
-                created_by=user.id,
-                name="Platform PostgreSQL DB",
-                database_type="postgresql",
-                host="postgres",
-                port=5432,
-                database_name="platform_db",
-                username="postgres",
-                encrypted_password=encrypt_secret("postgres", tenant.id),
-                ssl_enabled=False,
-                status="active",
-                schema_sync_status="completed",
-                is_active=True,
-            )
-            conn_repo.create(conn)
-            session.commit()
-            print(f"Created Database Connection: {conn.name} -> ID: {conn.id}")
-        else:
-            print(f"Database Connection already exists: {conn.name} -> ID: {conn.id}")
+        
+        connections_to_seed = [
+            {"name": "Platform PostgreSQL DB", "db_name": "platform_db"},
+            {"name": "Sales PostgreSQL DB", "db_name": "platform_db"},
+            {"name": "Analytics PostgreSQL DB", "db_name": "platform_db"}
+        ]
+        
+        seeded_conns = []
+        for c_data in connections_to_seed:
+            conn = conn_repo.get_by_name(tenant.id, c_data["name"])
+            if not conn:
+                conn = DatabaseConnection(
+                    tenant_id=tenant.id,
+                    created_by=user.id,
+                    name=c_data["name"],
+                    database_type="postgresql",
+                    host="postgres",
+                    port=5432,
+                    database_name=c_data["db_name"],
+                    username="postgres",
+                    encrypted_password=encrypt_secret("postgres", tenant.id),
+                    ssl_enabled=False,
+                    status="active",
+                    schema_sync_status="completed",
+                    is_active=True,
+                )
+                conn_repo.create(conn)
+                session.commit()
+                print(f"Created Database Connection: {conn.name} -> ID: {conn.id}")
+            else:
+                print(f"Database Connection already exists: {conn.name} -> ID: {conn.id}")
+            seeded_conns.append(conn)
+
+        # We will just use the first one for schema sync below, or we could sync all of them.
+        conn = seeded_conns[0]
 
         # 4. Sync Schema for Connection
         try:
