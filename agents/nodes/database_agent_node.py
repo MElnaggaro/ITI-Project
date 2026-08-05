@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from agents.state import AgentState
+from services.connection_router_service import ConnectionRouterService
 from services.query_execution_service import QueryExecutionService
 from services.schema_resolution_service import SchemaResolutionService
 from services.sql_generator_service import SQLGeneratorService
@@ -17,7 +18,16 @@ def database_agent_node(state: AgentState, db: Session) -> AgentState:
         return state
 
     try:
-        conn_id = state.database_connection_ids[0]
+        # Route to the best connection if multiple are provided
+        if len(state.database_connection_ids) > 1:
+            router = ConnectionRouterService(db)
+            conn_id = router.select_best_connection(state.user_message, state.database_connection_ids)
+        else:
+            conn_id = state.database_connection_ids[0]
+            
+        if not conn_id:
+            state.error_message = "No valid database connection could be selected."
+            return state
         schema_resolver = SchemaResolutionService(db)
         state.resolved_schema = schema_resolver.resolve_schema(state.context, conn_id)
 

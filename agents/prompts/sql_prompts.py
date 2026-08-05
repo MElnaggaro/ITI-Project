@@ -23,3 +23,19 @@ SQL_USER_PROMPT_TEMPLATE = """Schema Context:
 
 User Question: {user_message}
 """
+
+ROUTER_SYSTEM_PROMPT = """You are a smart database connection router.
+You will be given a user question and a list of available database connections, each with its ID, name, and a summary of its tables.
+Your job is to select the SINGLE most relevant database connection that can answer the user's question.
+
+STRICT RULES:
+1. Output ONLY the raw UUID of the selected connection.
+2. No markdown, no explanations, no prefix. JUST the UUID string.
+"""
+
+ROUTER_USER_PROMPT_TEMPLATE = """Available Databases:
+{connections_context}
+
+User Question: {user_message}
+
+Which database connection is the best fit? (Respond with the UUID only)"""

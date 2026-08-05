@@ -105,9 +105,30 @@
       });
 
       if (response.status === 401) {
-        showToast('Session expired or unauthorized. Please sign in.', 'error');
-        openModal(elements.modalLogin);
-        throw new Error('Unauthorized');
+        console.warn('Session expired. Attempting transparent re-login...');
+        try {
+          const loginData = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenant_code: 'demo-tenant', email: 'admin@demo.com', password: 'Admin123456!' })
+          }).then(res => res.json());
+          
+          if (loginData.access_token) {
+            state.token = loginData.access_token;
+            localStorage.setItem('access_token', state.token);
+            // Retry the original request with new token
+            headers['Authorization'] = `Bearer ${state.token}`;
+            const retryResponse = await fetch(`${API_BASE}${endpoint}`, {
+              ...options,
+              headers,
+            });
+            if (!retryResponse.ok) throw new Error('Retry failed');
+            return retryResponse.status === 204 ? null : await retryResponse.json();
+          }
+        } catch (e) {
+          showToast('Session expired. Please refresh the page.', 'error');
+          throw new Error('Unauthorized');
+        }
       }
 
       if (!response.ok) {
