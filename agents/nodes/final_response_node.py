@@ -26,8 +26,19 @@ def final_response_node(state: AgentState) -> AgentState:
         if state.retrieved_evidence:
             excerpts = "\n- ".join(e.excerpt[:200] for e in state.retrieved_evidence)
             state.final_answer = f"Based on your documents:\n- {excerpts}"
+    elif intent == "hybrid":
+        parts = []
+        if state.execution_envelope and state.execution_envelope.rows:
+            parts.append(
+                f"Database Records ({state.execution_envelope.returned_row_count} rows): {state.execution_envelope.rows[:2]}"
+            )
+        if state.retrieved_evidence:
+            excerpts = "\n- ".join(e.excerpt[:200] for e in state.retrieved_evidence)
+            parts.append(f"Document Evidence:\n- {excerpts}")
+        if parts:
+            state.final_answer = "Grounded Hybrid Response:\n\n" + "\n\n".join(parts)
         else:
-            state.final_answer = "No relevant information found in selected knowledge bases."
+            state.final_answer = "No matching database records or document evidence were found for your request."
     else:
         state.final_answer = "Processed request successfully."
 

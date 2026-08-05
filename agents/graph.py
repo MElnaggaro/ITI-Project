@@ -54,7 +54,9 @@ class ChatOrchestrator:
             state = document_agent_node(state, self.db)
 
         # 4. Final Answer Synthesis Node
-        state.final_answer = self._synthesize_answer(state)
+        synth_answer = self._synthesize_answer(state)
+        if synth_answer:
+            state.final_answer = synth_answer
         state = final_response_node(state)
 
         return state
