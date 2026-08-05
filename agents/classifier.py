@@ -1,10 +1,22 @@
-"""Request intent classifier for ChatOrchestrator pipeline."""
-
-from __future__ import annotations
-
+import re
 from uuid import UUID
 
 from schemas.chat import IntentType
+
+
+DB_KEYWORDS = frozenset({
+    "select", "sql", "query", "table", "tables", "column", "columns", "row", "rows",
+    "database", "db", "count", "sum", "avg", "min", "max", "where", "join", "joins",
+    "group", "order", "filter", "records", "schema", "schemas", "primary", "foreign",
+    "insert", "update", "delete", "from"
+})
+
+DOC_KEYWORDS = frozenset({
+    "document", "documents", "doc", "docs", "pdf", "file", "files", "page", "pages",
+    "article", "report", "reports", "section", "paragraph", "summary", "summarize",
+    "text", "content", "excerpt", "policy", "manual", "knowledge", "kb", "attachment",
+    "citation", "evidence", "read"
+})
 
 
 def classify_request(
@@ -22,8 +34,10 @@ def classify_request(
     if msg_lower in greetings or any(msg_lower.startswith(g) for g in ["hi ", "hello ", "hey "]):
         return "general"
 
-    matches_db = any(kw in msg_lower for kw in db_keywords)
-    matches_doc = any(kw in msg_lower for kw in doc_keywords)
+    tokens = set(re.findall(r"\b\w+\b", msg_lower))
+
+    matches_db = bool(tokens & DB_KEYWORDS)
+    matches_doc = bool(tokens & DOC_KEYWORDS)
 
     if matches_db and matches_doc:
         return "hybrid"
@@ -41,4 +55,6 @@ def classify_request(
         return "clarification"
 
     return "general"
+
+
 

@@ -10,20 +10,20 @@ Built with **FastAPI**, **SQLAlchemy 2**, **Alembic**, **SQLGlot AST Validator**
 
 - **Multi-Tenant Isolation & Authentication**: Strict tenant-scoped data isolation enforced at repository, database, vector-store, and storage layers. Argon2id password hashing and PyJWT access/refresh token rotation.
 - **Role & Permission Model Foundations**: Tenant-scoped Role Management, Table/Column permission grants with direct-user grant precedence over role grants, column projection/filter/aggregate gates, and sensitivity masking (`redact`, `last4`, `hash`).
-- **Live Database Connection & Introspection**: Encrypted database connection credentials (bound to tenant context AAD), SSRF host validation, live PostgreSQL schema introspection, and automated schema metadata sync.
+- **Dynamic Multi-Dialect Database Connections**: Encrypted connection credentials (bound to tenant context AAD), SSRF host validation, and live schema introspection for **PostgreSQL**, **MySQL**, **SQL Server**, and **Oracle** source databases with estimated row count statistics.
 - **Permission-Filtered Schema Resolution**: Dynamic, request-specific short-lived schema resolution including server-side AST compiled JSON DSL row-filter injection (`tenant_id` and `user_id` context placeholders).
-- **Text-to-SQL & AST Safety Layer**: SQLGlot AST parsing enforcing strict read-only queries (`SELECT`, `WITH ... SELECT`, `UNION SELECT`), rejection of DDL/DML (`INSERT`, `UPDATE`, `DELETE`, `DROP`), AST row-filter injection into `WHERE` clauses, limit clamping (max 1,000 rows), and statement timeouts.
-- **Bounded Query Execution Engine**: Safe read-only connection pool execution, column sensitivity masking, transient result envelopes, and sanitized `query_executions` audit record persistence.
+- **Text-to-SQL & SQLGlot AST Safety Layer**: Dialect-aware SQLGlot AST parsing enforcing strict read-only queries (`SELECT`, `WITH ... SELECT`, `UNION SELECT`), rejection of DDL/DML (`INSERT`, `UPDATE`, `DELETE`, `DROP`), procedure/comment rejection, column-level permission verification, AST row-filter injection, limit clamping (max 1,000 rows), and statement timeouts.
+- **Bounded Query Execution Engine**: Multi-dialect safe read-only connection pool execution, column sensitivity masking, transient result envelopes, and sanitized `query_executions` audit record persistence.
 - **Tenant-Scoped Object & File Storage**: Multi-format document upload (PDF, Word `.docx`, Excel `.xlsx`, CSV, Text) under tenant-isolated paths using unguessable prefixes, SHA-256 checksums, and durable processing status in PostgreSQL.
 - **Format-Specific Parsing & Deterministic Chunking**: Text extraction, SHA-256 content hashes, chunk indexing, page/section provenance tracking, and document chunks persistence.
-- **1024-Dimension Vector Store Indexing**: 1024-dimension float vector embedding generation (`EmbeddingService`), vector dimension validation, Qdrant vector store indexing with mandatory tenant and knowledge-base payload filters, and pgvector mirror updates.
-- **Knowledge Base Management & RAG Retrieval**: Tenant KB CRUD endpoints, document evidence retrieval, vector search, and citation-ready provenance formatting.
-- **Unified Chat Orchestrator (LangGraph Agent Graph)**: Single reusable chat graph classifying requests into 5 intents (`general`, `database`, `document`, `hybrid`, `clarification`), coordinating SQL execution, RAG document retrieval, and grounded final answer synthesis.
+- **1024-Dimension Vector Store & Embeddings**: 1024-dimension float vector embedding generation (`EmbeddingService` with FastEmbed/Ollama/fallback), Qdrant vector store integration with mandatory tenant and knowledge-base payload filters.
+- **Knowledge Base RAG & Evidence Re-ranking**: Query Rewriter service, Qdrant vector search, Evidence ReRanker scoring, and citation-ready provenance formatting.
+- **Unified Chat Orchestrator (LangGraph Agent Graph)**: Modular state graph (`Request -> Classifier -> Source Selector -> Database Agent Node & Document Agent Node (parallel in Hybrid mode) -> Hybrid Merger -> Final Response Node`).
 - **Conversation & Message Persistence**: Session management (`conversations` and `messages` tables) tracking question prompts, assistant answers, latency, and intent.
 - **Durable Citations & Traceability**: `MessageCitation` persistence linking assistant responses back to document chunks or SQL query executions, served via `GET /api/messages/{id}/citations` and `GET /api/messages/{id}/sql`.
 - **Streaming SSE Chat API**: Server-Sent Events interface (`POST /api/chat/stream`) emitting structured event framing sequences (`intent`, `answer`, `done`) adhering to Section 9 response contract compatibility.
 - **Structured Audit Logging & Observability**: Tenant-aware audit logging (`audit_logs` table) with automatic credential/secret redaction (`password`, `token`, `secret`) and operational health probes (`GET /api/health`).
-- **Security Hardening & Automated Test Suite**: Comprehensive security regression suite asserting 100% multi-tenant isolation, SQL injection hardening, sensitive data masking, Section 8 API contract verification, and 81 passing tests across all 21 phases.
+- **Security Hardening & Automated Test Suite**: Comprehensive security regression suite asserting 100% multi-tenant isolation, SQL injection hardening, sensitive data masking, Section 8 API contract verification, and passing test suite across 87 tests.
 
 ---
 

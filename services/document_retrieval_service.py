@@ -16,6 +16,10 @@ from services.embedding_service import EmbeddingService
 from services.vector_store_service import VectorStoreService
 
 
+from services.documents.query_rewriter import QueryRewriterService
+from services.documents.reranker import EvidenceReRankerService
+
+
 class DocumentRetrievalService:
     """Retrieves and reranks document evidence from vector store and PostgreSQL."""
 
@@ -27,6 +31,8 @@ class DocumentRetrievalService:
         self.session = session
         self.embedder = EmbeddingService()
         self.vector_store = vector_store or VectorStoreService()
+        self.query_rewriter = QueryRewriterService()
+        self.reranker = EvidenceReRankerService()
 
     def retrieve_evidence(
         self,
@@ -50,8 +56,11 @@ class DocumentRetrievalService:
         if not valid_kbs:
             return []
 
-        # Generate query embedding
-        query_vector = self.embedder.embed_text(user_query)
+        # 1. Rewrite query for vector search optimization
+        rewritten_query = self.query_rewriter.rewrite_query(user_query) or user_query
+
+        # 2. Generate query embedding
+        query_vector = self.embedder.embed_text(rewritten_query)
 
         all_evidence: list[RetrievedEvidence] = []
         for kb in valid_kbs:
@@ -59,12 +68,11 @@ class DocumentRetrievalService:
                 tenant_id=context.tenant_id,
                 knowledge_base_id=kb.id,
                 query_vector=query_vector,
-                top_k=top_k,
+                top_k=top_k * 2,
             )
 
             for res in raw_results:
                 chunk_id = UUID(res["chunk_id"])
-                # Load chunk and file details from PostgreSQL for provenance
                 chunk_obj = self.session.scalar(
                     select(DocumentChunk)
                     .where(DocumentChunk.tenant_id == context.tenant_id)
@@ -90,6 +98,6 @@ class DocumentRetrievalService:
                     )
                 )
 
-        # Sort and rerank across knowledge bases by similarity score
-        all_evidence.sort(key=lambda item: item.score, reverse=True)
-        return all_evidence[:top_k]
+        # 3. Apply Evidence ReRanker across candidates
+        return self.reranker.rerank(query=user_query, candidates=all_evidence, top_k=top_k)
+

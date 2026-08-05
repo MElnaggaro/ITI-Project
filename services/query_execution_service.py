@@ -67,9 +67,20 @@ class QueryExecutionService:
         plain_pass = decrypt_secret(conn.encrypted_password, context.tenant_id)
         plain_conn_str = decrypt_secret(conn.encrypted_connection_string, context.tenant_id)
 
-        # Build connection string
-        ssl_mode = "require" if conn.ssl_enabled else "disable"
-        conn_str = plain_conn_str or f"postgresql+psycopg://{conn.username}:{plain_pass}@{conn.host}:{conn.port}/{conn.database_name}?sslmode={ssl_mode}"
+        from services.database.adapter import get_source_adapter
+        adapter = get_source_adapter(
+            database_type=conn.database_type,
+            host=conn.host,
+            port=conn.port,
+            database_name=conn.database_name,
+            username=conn.username,
+            password=plain_pass,
+            connection_string=plain_conn_str,
+            ssl_enabled=conn.ssl_enabled,
+            ssl_settings=conn.ssl_settings,
+            connection_options=conn.connection_options,
+        )
+        conn_str = adapter.build_connection_string()
 
         start_time = time.perf_counter()
         rows: list[dict[str, Any]] = []

@@ -20,7 +20,8 @@ class SQLGeneratorService:
         if resolved_schema.is_empty():
             raise ValueError("Cannot generate SQL for an empty or unpermitted schema.")
 
-        lines = ["Permitted Database Schema Context:"]
+        dialect_info = f"Target Database Dialect: {resolved_schema.database_type.upper()}"
+        lines = [dialect_info, "Permitted Database Schema Context:"]
         for tbl_name, tbl in resolved_schema.tables.items():
             col_specs = []
             for col_name, col in tbl.columns.items():
@@ -39,6 +40,7 @@ class SQLGeneratorService:
                 )
 
         return "\n".join(lines)
+
 
     def generate_candidate(
         self,

@@ -108,8 +108,158 @@ class PostgreSQLAdapter(BaseSourceAdapter):
             return False, f"PostgreSQL connection test failed: {err_msg[:150]}"
 
 
+class MySQLAdapter(BaseSourceAdapter):
+    """Adapter for live MySQL source databases."""
+
+    def __init__(
+        self,
+        host: str | None,
+        port: int | None,
+        database_name: str | None,
+        username: str | None,
+        password: str | None,
+        connection_string: str | None = None,
+        ssl_enabled: bool = False,
+        ssl_settings: dict[str, Any] | None = None,
+        connection_options: dict[str, Any] | None = None,
+    ) -> None:
+        self.host = host
+        self.port = port or 3306
+        self.database_name = database_name
+        self.username = username
+        self.password = password
+        self.raw_connection_string = connection_string
+        self.ssl_enabled = ssl_enabled
+        self.ssl_settings = ssl_settings or {}
+        self.connection_options = connection_options or {}
+
+        validate_host_ssrf(self.host)
+
+    def build_connection_string(self) -> str:
+        if self.raw_connection_string:
+            return self.raw_connection_string
+        return f"mysql+pymysql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database_name}"
+
+    def test_connection(self, timeout_seconds: int = 5) -> tuple[bool, str]:
+        conn_str = self.build_connection_string()
+        try:
+            engine = create_engine(
+                conn_str,
+                connect_args={"connect_timeout": timeout_seconds},
+                pool_pre_ping=True,
+            )
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT 1")).scalar()
+                if result == 1:
+                    return True, "MySQL connection test successful."
+                return False, "Unexpected health probe response."
+        except Exception as e:
+            err_msg = str(e).split("\n")[0]
+            return False, f"MySQL connection test failed: {err_msg[:150]}"
+
+
+class SQLServerAdapter(BaseSourceAdapter):
+    """Adapter for live Microsoft SQL Server source databases."""
+
+    def __init__(
+        self,
+        host: str | None,
+        port: int | None,
+        database_name: str | None,
+        username: str | None,
+        password: str | None,
+        connection_string: str | None = None,
+        ssl_enabled: bool = False,
+        ssl_settings: dict[str, Any] | None = None,
+        connection_options: dict[str, Any] | None = None,
+    ) -> None:
+        self.host = host
+        self.port = port or 1433
+        self.database_name = database_name
+        self.username = username
+        self.password = password
+        self.raw_connection_string = connection_string
+        self.ssl_enabled = ssl_enabled
+        self.ssl_settings = ssl_settings or {}
+        self.connection_options = connection_options or {}
+
+        validate_host_ssrf(self.host)
+
+    def build_connection_string(self) -> str:
+        if self.raw_connection_string:
+            return self.raw_connection_string
+        # Default to pyodbc / pymssql driver format
+        return f"mssql+pymssql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database_name}"
+
+    def test_connection(self, timeout_seconds: int = 5) -> tuple[bool, str]:
+        conn_str = self.build_connection_string()
+        try:
+            engine = create_engine(
+                conn_str,
+                connect_args={"timeout": timeout_seconds},
+                pool_pre_ping=True,
+            )
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT 1")).scalar()
+                if result == 1:
+                    return True, "SQL Server connection test successful."
+                return False, "Unexpected health probe response."
+        except Exception as e:
+            err_msg = str(e).split("\n")[0]
+            return False, f"SQL Server connection test failed: {err_msg[:150]}"
+
+
+class OracleAdapter(BaseSourceAdapter):
+    """Adapter for live Oracle Database source databases."""
+
+    def __init__(
+        self,
+        host: str | None,
+        port: int | None,
+        database_name: str | None,
+        username: str | None,
+        password: str | None,
+        connection_string: str | None = None,
+        ssl_enabled: bool = False,
+        ssl_settings: dict[str, Any] | None = None,
+        connection_options: dict[str, Any] | None = None,
+    ) -> None:
+        self.host = host
+        self.port = port or 1521
+        self.database_name = database_name
+        self.username = username
+        self.password = password
+        self.raw_connection_string = connection_string
+        self.ssl_enabled = ssl_enabled
+        self.ssl_settings = ssl_settings or {}
+        self.connection_options = connection_options or {}
+
+        validate_host_ssrf(self.host)
+
+    def build_connection_string(self) -> str:
+        if self.raw_connection_string:
+            return self.raw_connection_string
+        return f"oracle+oracledb://{self.username}:{self.password}@{self.host}:{self.port}/?service_name={self.database_name}"
+
+    def test_connection(self, timeout_seconds: int = 5) -> tuple[bool, str]:
+        conn_str = self.build_connection_string()
+        try:
+            engine = create_engine(
+                conn_str,
+                pool_pre_ping=True,
+            )
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT 1 FROM DUAL")).scalar()
+                if result == 1:
+                    return True, "Oracle connection test successful."
+                return False, "Unexpected health probe response."
+        except Exception as e:
+            err_msg = str(e).split("\n")[0]
+            return False, f"Oracle connection test failed: {err_msg[:150]}"
+
+
 class ExtensionSourceAdapter(BaseSourceAdapter):
-    """Stub adapter for unsupported future dialects (MySQL, SQL Server, Oracle)."""
+    """Stub adapter for unsupported dialect fallback."""
 
     def __init__(self, dialect: str) -> None:
         self.dialect = dialect
@@ -135,16 +285,26 @@ def get_source_adapter(
 ) -> BaseSourceAdapter:
     """Return configured source adapter instance."""
     normalized_type = database_type.strip().lower()
-    if normalized_type == "postgresql":
-        return PostgreSQLAdapter(
-            host=host,
-            port=port,
-            database_name=database_name,
-            username=username,
-            password=password,
-            connection_string=connection_string,
-            ssl_enabled=ssl_enabled,
-            ssl_settings=ssl_settings,
-            connection_options=connection_options,
-        )
+    kwargs = dict(
+        host=host,
+        port=port,
+        database_name=database_name,
+        username=username,
+        password=password,
+        connection_string=connection_string,
+        ssl_enabled=ssl_enabled,
+        ssl_settings=ssl_settings,
+        connection_options=connection_options,
+    )
+    if normalized_type in {"postgresql", "postgres"}:
+        return PostgreSQLAdapter(**kwargs)
+    elif normalized_type in {"mysql", "mariadb"}:
+        return MySQLAdapter(**kwargs)
+    elif normalized_type in {"sqlserver", "mssql", "sql_server"}:
+        return SQLServerAdapter(**kwargs)
+    elif normalized_type == "oracle":
+        return OracleAdapter(**kwargs)
+
     return ExtensionSourceAdapter(dialect=database_type)
+
+

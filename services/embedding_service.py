@@ -15,16 +15,37 @@ class EmbeddingService:
         self.model_name = model_name
 
     def embed_text(self, text: str) -> list[float]:
-        """Generate deterministic 1024-dimension normalized float vector."""
+        """Generate 1024-dimension normalized float vector."""
         if not text:
             raise ValueError("Cannot embed empty text.")
 
-        # Seed deterministic pseudo-random vector from text sha256 hash for tests/offline mode
+        # 1. Try FastEmbed / SentenceTransformers if available
+        try:
+            from fastembed import TextEmbedding
+            model = TextEmbedding(model_name="BAAI/bge-large-en-v1.5")
+            embeddings = list(model.embed([text]))
+            vector = list(embeddings[0])
+            if len(vector) == EMBEDDING_DIMENSION:
+                return vector
+        except Exception:
+            pass
+
+        # 2. Try Ollama embedding if available
+        try:
+            from services.llm.ollama_service import OllamaLLMService
+            ollama_svc = OllamaLLMService()
+            if ollama_svc.is_enabled():
+                vec = ollama_svc.embed_text(text)
+                if vec and len(vec) == EMBEDDING_DIMENSION:
+                    return vec
+        except Exception:
+            pass
+
+        # 3. Deterministic pseudo-random vector fallback for offline/test mode
         seed_int = int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:8], 16)
         rng = random.Random(seed_int)
 
         vector = [rng.uniform(-1.0, 1.0) for _ in range(EMBEDDING_DIMENSION)]
-        # L2 Normalize
         norm = (sum(v * v for v in vector)) ** 0.5
         normalized_vector = [v / norm for v in vector]
 
@@ -37,3 +58,4 @@ class EmbeddingService:
             raise ValueError(
                 f"Embedding dimension mismatch: expected {EMBEDDING_DIMENSION}, got {len(vector)}."
             )
+

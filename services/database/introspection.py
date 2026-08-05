@@ -77,28 +77,34 @@ class PostgreSQLIntrospector:
                 schemas[s_name] = DiscoveredSchema(schema_name=s_name)
 
             if not schemas:
-                # Default to 'public' schema if nothing returned
                 schemas["public"] = DiscoveredSchema(schema_name="public")
 
-            # 2. Discover tables & views across discovered schemas
+            # 2. Discover tables & views across discovered schemas with estimated row count from pg_class
             table_stmt = text(
                 """
-                SELECT table_schema, table_name, table_type
-                FROM information_schema.tables
-                WHERE table_schema = ANY(:schemas)
-                ORDER BY table_schema, table_name;
+                SELECT
+                    t.table_schema,
+                    t.table_name,
+                    t.table_type,
+                    COALESCE(c.reltuples::bigint, 0) AS estimated_row_count
+                FROM information_schema.tables t
+                LEFT JOIN pg_namespace n ON n.nspname = t.table_schema
+                LEFT JOIN pg_class c ON c.relname = t.table_name AND c.relnamespace = n.oid
+                WHERE t.table_schema = ANY(:schemas)
+                ORDER BY t.table_schema, t.table_name;
                 """
             )
-            tables_by_schema: dict[str, dict[str, DiscoveredTable]] = {}
             for row in conn.execute(table_stmt, {"schemas": list(schemas.keys())}):
                 s_name = row.table_schema
                 t_name = row.table_name
                 t_type = "view" if "VIEW" in str(row.table_type).upper() else "table"
+                row_cnt = max(0, int(row.estimated_row_count or 0))
 
                 dt = DiscoveredTable(
                     schema_name=s_name,
                     table_name=t_name,
                     table_type=t_type,
+                    estimated_row_count=row_cnt,
                 )
                 schemas[s_name].tables[t_name] = dt
 
@@ -169,3 +175,200 @@ class PostgreSQLIntrospector:
 
         engine.dispose()
         return schemas
+
+
+class MySQLIntrospector:
+    """Introspects MySQL live catalog using information_schema."""
+
+    def __init__(self, connection_string: str) -> None:
+        self.connection_string = connection_string
+
+    def introspect(self) -> dict[str, DiscoveredSchema]:
+        engine = create_engine(self.connection_string, pool_pre_ping=True)
+        schemas: dict[str, DiscoveredSchema] = {}
+
+        with engine.connect() as conn:
+            # Discover schemas (databases)
+            schema_stmt = text(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys') "
+                "ORDER BY schema_name;"
+            )
+            for row in conn.execute(schema_stmt):
+                s_name = row.schema_name
+                schemas[s_name] = DiscoveredSchema(schema_name=s_name)
+
+            if not schemas:
+                # Default fallback
+                db_name = engine.url.database or "default"
+                schemas[db_name] = DiscoveredSchema(schema_name=db_name)
+
+            table_stmt = text(
+                "SELECT table_schema, table_name, table_type, table_rows "
+                "FROM information_schema.tables WHERE table_schema IN :schemas;"
+            )
+            for row in conn.execute(table_stmt, {"schemas": tuple(schemas.keys())}):
+                s_name = row.table_schema
+                t_name = row.table_name
+                t_type = "view" if "VIEW" in str(row.table_type).upper() else "table"
+                row_cnt = int(row.table_rows or 0)
+                schemas[s_name].tables[t_name] = DiscoveredTable(
+                    schema_name=s_name, table_name=t_name, table_type=t_type, estimated_row_count=row_cnt
+                )
+
+            col_stmt = text(
+                "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable, column_key "
+                "FROM information_schema.columns WHERE table_schema IN :schemas ORDER BY ordinal_position;"
+            )
+            for row in conn.execute(col_stmt, {"schemas": tuple(schemas.keys())}):
+                s_name = row.table_schema
+                t_name = row.table_name
+                c_name = row.column_name
+                if s_name in schemas and t_name in schemas[s_name].tables:
+                    tbl = schemas[s_name].tables[t_name]
+                    is_pk = (str(row.column_key).upper() == "PRI")
+                    col = DiscoveredColumn(
+                        column_name=c_name,
+                        data_type=row.data_type,
+                        ordinal_position=row.ordinal_position,
+                        is_nullable=(str(row.is_nullable).upper() == "YES"),
+                        is_primary_key=is_pk,
+                    )
+                    if is_pk and c_name not in tbl.primary_key_columns:
+                        tbl.primary_key_columns.append(c_name)
+                    tbl.columns[c_name] = col
+
+            fk_stmt = text(
+                "SELECT table_schema, table_name, column_name, referenced_table_schema, referenced_table_name, referenced_column_name "
+                "FROM information_schema.key_column_usage "
+                "WHERE table_schema IN :schemas AND referenced_table_name IS NOT NULL;"
+            )
+            for row in conn.execute(fk_stmt, {"schemas": tuple(schemas.keys())}):
+                s_name = row.table_schema
+                t_name = row.table_name
+                c_name = row.column_name
+                if s_name in schemas and t_name in schemas[s_name].tables:
+                    tbl = schemas[s_name].tables[t_name]
+                    if c_name in tbl.columns:
+                        col = tbl.columns[c_name]
+                        col.is_foreign_key = True
+                        col.referenced_schema = row.referenced_table_schema
+                        col.referenced_table = row.referenced_table_name
+                        col.referenced_column = row.referenced_column_name
+
+        engine.dispose()
+        return schemas
+
+
+class SQLServerIntrospector:
+    """Introspects SQL Server catalog using sys & information_schema views."""
+
+    def __init__(self, connection_string: str) -> None:
+        self.connection_string = connection_string
+
+    def introspect(self) -> dict[str, DiscoveredSchema]:
+        engine = create_engine(self.connection_string, pool_pre_ping=True)
+        schemas: dict[str, DiscoveredSchema] = {}
+
+        with engine.connect() as conn:
+            schema_stmt = text(
+                "SELECT schema_name FROM information_schema.schemata "
+                "WHERE schema_name NOT IN ('guest', 'INFORMATION_SCHEMA', 'sys', 'db_owner', 'db_accessadmin') "
+                "ORDER BY schema_name;"
+            )
+            for row in conn.execute(schema_stmt):
+                s_name = row.schema_name
+                schemas[s_name] = DiscoveredSchema(schema_name=s_name)
+
+            if not schemas:
+                schemas["dbo"] = DiscoveredSchema(schema_name="dbo")
+
+            table_stmt = text(
+                "SELECT table_schema, table_name, table_type FROM information_schema.tables WHERE table_schema IN :schemas;"
+            )
+            for row in conn.execute(table_stmt, {"schemas": tuple(schemas.keys())}):
+                s_name = row.table_schema
+                t_name = row.table_name
+                t_type = "view" if "VIEW" in str(row.table_type).upper() else "table"
+                schemas[s_name].tables[t_name] = DiscoveredTable(
+                    schema_name=s_name, table_name=t_name, table_type=t_type, estimated_row_count=0
+                )
+
+            col_stmt = text(
+                "SELECT table_schema, table_name, column_name, data_type, ordinal_position, is_nullable "
+                "FROM information_schema.columns WHERE table_schema IN :schemas ORDER BY ordinal_position;"
+            )
+            for row in conn.execute(col_stmt, {"schemas": tuple(schemas.keys())}):
+                s_name = row.table_schema
+                t_name = row.table_name
+                c_name = row.column_name
+                if s_name in schemas and t_name in schemas[s_name].tables:
+                    col = DiscoveredColumn(
+                        column_name=c_name,
+                        data_type=row.data_type,
+                        ordinal_position=row.ordinal_position,
+                        is_nullable=(str(row.is_nullable).upper() == "YES"),
+                    )
+                    schemas[s_name].tables[t_name].columns[c_name] = col
+
+        engine.dispose()
+        return schemas
+
+
+class OracleIntrospector:
+    """Introspects Oracle catalog using ALL_* catalog views."""
+
+    def __init__(self, connection_string: str) -> None:
+        self.connection_string = connection_string
+
+    def introspect(self) -> dict[str, DiscoveredSchema]:
+        engine = create_engine(self.connection_string, pool_pre_ping=True)
+        schemas: dict[str, DiscoveredSchema] = {"SYSTEM": DiscoveredSchema(schema_name="SYSTEM")}
+
+        with engine.connect() as conn:
+            table_stmt = text(
+                "SELECT owner, table_name, num_rows FROM all_tables WHERE owner NOT IN ('SYS', 'SYSTEM', 'OUTLN', 'XDB') ORDER BY table_name"
+            )
+            for row in conn.execute(table_stmt):
+                s_name = row.owner
+                t_name = row.table_name
+                if s_name not in schemas:
+                    schemas[s_name] = DiscoveredSchema(schema_name=s_name)
+                schemas[s_name].tables[t_name] = DiscoveredTable(
+                    schema_name=s_name, table_name=t_name, table_type="table", estimated_row_count=int(row.num_rows or 0)
+                )
+
+            col_stmt = text(
+                "SELECT owner, table_name, column_name, data_type, column_id, nullable FROM all_tab_columns WHERE owner IN :schemas ORDER BY column_id"
+            )
+            if schemas:
+                for row in conn.execute(col_stmt, {"schemas": tuple(schemas.keys())}):
+                    s_name = row.owner
+                    t_name = row.table_name
+                    c_name = row.column_name
+                    if s_name in schemas and t_name in schemas[s_name].tables:
+                        col = DiscoveredColumn(
+                            column_name=c_name,
+                            data_type=row.data_type,
+                            ordinal_position=int(row.column_id or 1),
+                            is_nullable=(str(row.nullable).upper() == "Y"),
+                        )
+                        schemas[s_name].tables[t_name].columns[c_name] = col
+
+        engine.dispose()
+        return schemas
+
+
+def get_introspector(database_type: str, connection_string: str) -> Any:
+    """Factory creating dialect-specific catalog introspector."""
+    normalized = database_type.strip().lower()
+    if normalized in {"postgresql", "postgres"}:
+        return PostgreSQLIntrospector(connection_string)
+    elif normalized in {"mysql", "mariadb"}:
+        return MySQLIntrospector(connection_string)
+    elif normalized in {"sqlserver", "mssql", "sql_server"}:
+        return SQLServerIntrospector(connection_string)
+    elif normalized == "oracle":
+        return OracleIntrospector(connection_string)
+    return PostgreSQLIntrospector(connection_string)
+

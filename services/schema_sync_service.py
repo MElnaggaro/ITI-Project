@@ -35,9 +35,6 @@ class SchemaSyncService:
         if not conn.is_active:
             raise ValueError("Cannot sync inactive database connection.")
 
-        if conn.database_type.lower() != "postgresql":
-            raise ValueError(f"Dialect '{conn.database_type}' is not supported for schema sync.")
-
         # Decrypt secrets to construct connection string
         plain_pass = decrypt_secret(conn.encrypted_password, context.tenant_id)
         plain_conn_str = decrypt_secret(conn.encrypted_connection_string, context.tenant_id)
@@ -56,7 +53,8 @@ class SchemaSyncService:
         )
 
         conn_string = adapter.build_connection_string()
-        introspector = PostgreSQLIntrospector(conn_string)
+        from services.database.introspection import get_introspector
+        introspector = get_introspector(conn.database_type, conn_string)
 
         try:
             discovered_schemas = introspector.introspect()

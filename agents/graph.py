@@ -13,92 +13,50 @@ from services.sql_generator_service import SQLGeneratorService
 from services.sql_validator_service import SQLValidatorService
 
 
+from concurrent.futures import ThreadPoolExecutor
+from sqlalchemy.orm import Session
+
+from agents.nodes.classifier_node import classifier_node
+from agents.nodes.database_agent_node import database_agent_node
+from agents.nodes.document_agent_node import document_agent_node
+from agents.nodes.final_response_node import final_response_node
+from agents.nodes.hybrid_merger_node import hybrid_merger_node
+from agents.nodes.source_selector_node import source_selector_node
+from agents.state import AgentState
+
+
 class ChatOrchestrator:
-    """Orchestrates multi-intent chat pipeline across SQL and Document RAG engines."""
+    """Orchestrates multi-intent chat pipeline using modular nodes and parallel hybrid execution."""
 
     def __init__(self, db: Session) -> None:
         self.db = db
-        self.schema_resolver = SchemaResolutionService(db)
-        self.sql_generator = SQLGeneratorService()
-        self.sql_validator = SQLValidatorService()
-        self.query_executor = QueryExecutionService(db)
-        self.doc_retriever = DocumentRetrievalService(db)
 
     def run(self, state: AgentState) -> AgentState:
-        """Run state machine graph for chat request."""
-        # 1. Intent Classification
-        state.detected_intent = classify_request(
-            user_message=state.user_message,
-            database_connection_ids=state.database_connection_ids,
-            knowledge_base_ids=state.knowledge_base_ids,
-        )
+        """Run state graph pipeline: Request -> Classifier -> Source Selector -> Agents -> Merger -> Synthesis."""
+        # 1. Classifier Node
+        state = classifier_node(state)
 
+        # 2. Source Selector Node
+        state = source_selector_node(state)
         intent = state.detected_intent
 
-        # 2. Database Branch
-        if intent in {"database", "hybrid"} and state.database_connection_ids:
-            try:
-                conn_id = state.database_connection_ids[0]
-                state.resolved_schema = self.schema_resolver.resolve_schema(state.context, conn_id)
+        # 3. Agent Execution (Parallel execution in Hybrid mode)
+        if intent == "hybrid":
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                db_future = executor.submit(database_agent_node, state, self.db)
+                doc_future = executor.submit(document_agent_node, state, self.db)
+                state = db_future.result()
+                state = doc_future.result()
+            state = hybrid_merger_node(state)
+        elif intent == "database":
+            state = database_agent_node(state, self.db)
+        elif intent == "document":
+            state = document_agent_node(state, self.db)
 
-                if not state.resolved_schema.is_empty():
-                    candidate = self.sql_generator.generate_candidate(
-                        state.context, state.user_message, state.resolved_schema
-                    )
-                    state.generated_sql = candidate.candidate_sql
-
-                    plan = self.sql_validator.validate_and_rewrite(
-                        candidate.candidate_sql, state.resolved_schema
-                    )
-                    state.validated_plan = plan
-
-                    if plan.validation_status == "valid":
-                        envelope = self.query_executor.execute_plan(
-                            context=state.context,
-                            connection_id=conn_id,
-                            validated_plan=plan,
-                            resolved_schema=state.resolved_schema,
-                            conversation_id=state.conversation_id,
-                            message_id=state.message_id,
-                        )
-                        state.execution_envelope = envelope
-                        state.sources_used.append(
-                            {
-                                "citation_type": "sql",
-                                "title": "SQL Query Result",
-                                "source_reference": plan.final_sql or plan.generated_sql,
-                                "table": plan.referenced_tables[0] if plan.referenced_tables else None,
-                            }
-                        )
-            except Exception as e:
-                state.error_message = f"Database pipeline error: {str(e)[:150]}"
-
-        # 3. Document Branch
-        if intent in {"document", "hybrid"} and state.knowledge_base_ids:
-            try:
-                evidence = self.doc_retriever.retrieve_evidence(
-                    context=state.context,
-                    knowledge_base_ids=state.knowledge_base_ids,
-                    user_query=state.user_message,
-                    top_k=3,
-                )
-                state.retrieved_evidence = evidence
-                for item in evidence:
-                    state.sources_used.append(
-                        {
-                            "citation_type": "document",
-                            "title": item.file_name,
-                            "source_reference": f"Page {item.page_number or 1}",
-                            "page_number": item.page_number,
-                            "relevance_score": item.score,
-                            "file_name": item.file_name,
-                        }
-                    )
-            except Exception as e:
-                state.error_message = f"Document pipeline error: {str(e)[:150]}"
-
-        # 4. Final Answer Synthesis
+        # 4. Final Answer Synthesis Node
         state.final_answer = self._synthesize_answer(state)
+        state = final_response_node(state)
+
         return state
 
     def _synthesize_answer(self, state: AgentState) -> str:
@@ -112,9 +70,10 @@ class ChatOrchestrator:
         if state.retrieved_evidence:
             doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:300]}" for e in state.retrieved_evidence[:3]])
 
-        # 1. Try Ollama (qwen3.5:4b) Answer Synthesis
+        # Try Ollama (qwen3.5:4b) Answer Synthesis if available
         try:
             from services.llm.ollama_service import OllamaLLMService
+
             ollama_svc = OllamaLLMService()
             if ollama_svc.is_enabled():
                 answer = ollama_svc.synthesize_answer(
@@ -128,37 +87,6 @@ class ChatOrchestrator:
         except Exception:
             pass
 
-        # 2. Rule-based fallback synthesis
-        if intent == "general":
-            return "Hello! I am your Enterprise AI Assistant. How can I help you analyze your databases or knowledge base documents today?"
+        return ""
 
-        elif intent == "clarification":
-            return "Could you please specify which database connection or knowledge base you would like me to query?"
-
-        elif intent == "database":
-            if state.execution_envelope and state.execution_envelope.rows:
-                rows_summary = f"Found {state.execution_envelope.returned_row_count} records."
-                return f"Based on the database query, here are the results: {rows_summary} Sample data: {state.execution_envelope.rows[:2]}"
-            elif state.validated_plan and state.validated_plan.validation_status == "invalid":
-                return f"I generated a database query, but it failed security validation: {state.validated_plan.validation_errors}"
-            return "No records found in the database for your query."
-
-        elif intent == "document":
-            if state.retrieved_evidence:
-                excerpts = "\n- ".join(e.excerpt[:200] for e in state.retrieved_evidence)
-                return f"Based on your documents, here is the relevant information:\n- {excerpts}"
-            return "No relevant information was found in the selected knowledge bases."
-
-        elif intent == "hybrid":
-            parts = []
-            if state.execution_envelope:
-                parts.append(f"Database Query Results ({state.execution_envelope.returned_row_count} rows): {state.execution_envelope.rows[:1]}")
-            if state.retrieved_evidence:
-                parts.append(f"Document Evidence: {state.retrieved_evidence[0].excerpt[:150]}")
-
-            if parts:
-                return "Here is the combined information:\n" + "\n".join(parts)
-            return "No database records or document evidence matched your request."
-
-        return "I have processed your request."
 

@@ -23,12 +23,22 @@ DISALLOWED_NODE_TYPES = (
 
 MAX_ROW_LIMIT = 1000
 
+DIALECT_MAP = {
+    "postgresql": "postgres",
+    "postgres": "postgres",
+    "mysql": "mysql",
+    "sqlserver": "tsql",
+    "mssql": "tsql",
+    "oracle": "oracle",
+}
+
 
 class SQLValidatorService:
     """AST-based SQL validator and security rewriter."""
 
     def __init__(self, dialect: str = "postgres") -> None:
-        self.dialect = dialect
+        raw_dialect = dialect.strip().lower()
+        self.dialect = DIALECT_MAP.get(raw_dialect, "postgres")
 
     def validate_and_rewrite(
         self,
@@ -45,7 +55,18 @@ class SQLValidatorService:
                 validation_errors=["Candidate SQL string is empty."],
             )
 
-        # 1. Parse SQL candidate
+        # 1. Reject comments explicitly
+        cleaned_raw = candidate_sql.strip()
+        if "--" in cleaned_raw or "/*" in cleaned_raw or "*/" in cleaned_raw:
+            return ValidatedQueryPlan(
+                generated_sql=candidate_sql,
+                normalized_sql="",
+                query_type="disallowed",
+                validation_status="invalid",
+                validation_errors=["Comments in SQL queries are strictly prohibited due to security policy."],
+            )
+
+        # 2. Parse SQL candidate
         try:
             parsed_statements = sqlglot.parse(candidate_sql, read=self.dialect)
         except Exception as e:
@@ -69,7 +90,7 @@ class SQLValidatorService:
         ast = parsed_statements[0]
         errors: list[str] = []
 
-        # 2. Enforce Read-Only AST
+        # 3. Enforce Read-Only AST
         if isinstance(ast, DISALLOWED_NODE_TYPES) or any(
             ast.find_all(DISALLOWED_NODE_TYPES)
         ):
@@ -78,7 +99,7 @@ class SQLValidatorService:
                 normalized_sql=ast.sql(dialect=self.dialect),
                 query_type="disallowed",
                 validation_status="invalid",
-                validation_errors=["Data modification and DDL statements are strictly prohibited."],
+                validation_errors=["Data modification, procedural commands, and DDL statements are strictly prohibited."],
             )
 
         # Determine query type
@@ -97,7 +118,7 @@ class SQLValidatorService:
                 validation_errors=["Only SELECT, WITH, and UNION read-only queries are permitted."],
             )
 
-        # 3. Table & Column Permission Verification
+        # 4. Table & Column Permission Verification
         referenced_tables: list[str] = []
         referenced_columns: list[str] = []
         applied_filters_meta: list[dict[str, Any]] = []
@@ -120,6 +141,26 @@ class SQLValidatorService:
                 if tbl_name not in referenced_tables:
                     referenced_tables.append(tbl_name)
 
+        # Column-level permission verification
+        columns_in_ast = list(ast.find_all(exp.Column))
+        for col_node in columns_in_ast:
+            c_name = col_node.name
+            if not c_name or c_name == "*":
+                continue
+
+            tbl_name = col_node.table
+            if not tbl_name and len(referenced_tables) == 1:
+                tbl_name = referenced_tables[0]
+
+            if tbl_name and tbl_name in resolved_schema.tables:
+                tbl_schema = resolved_schema.tables[tbl_name]
+                if c_name not in tbl_schema.columns or not tbl_schema.columns[c_name].can_read:
+                    errors.append(f"Referenced column '{c_name}' on table '{tbl_name}' is not permitted.")
+                else:
+                    ref_col_str = f"{tbl_name}.{c_name}"
+                    if ref_col_str not in referenced_columns:
+                        referenced_columns.append(ref_col_str)
+
         if errors:
             return ValidatedQueryPlan(
                 generated_sql=candidate_sql,
@@ -129,7 +170,7 @@ class SQLValidatorService:
                 validation_errors=errors,
             )
 
-        # 4. Inject Row-Filter AST Expressions
+        # 5. Inject Row-Filter AST Expressions
         for tbl_name in referenced_tables:
             tbl = resolved_schema.tables[tbl_name]
             if tbl.compiled_row_filters:
@@ -137,7 +178,7 @@ class SQLValidatorService:
                 for filter_ast in tbl.compiled_row_filters:
                     ast = ast.where(filter_ast)
 
-        # 5. Limit Clamping
+        # 6. Limit Clamping
         existing_limit = ast.args.get("limit")
         if existing_limit is None:
             ast = ast.limit(MAX_ROW_LIMIT)
@@ -149,7 +190,7 @@ class SQLValidatorService:
             except (ValueError, AttributeError):
                 ast = ast.limit(MAX_ROW_LIMIT)
 
-        # 6. Final Re-Validation
+        # 7. Final Re-Validation
         final_sql = ast.sql(dialect=self.dialect)
 
         return ValidatedQueryPlan(
@@ -163,3 +204,4 @@ class SQLValidatorService:
             applied_row_filters=applied_filters_meta,
             final_sql=final_sql,
         )
+
