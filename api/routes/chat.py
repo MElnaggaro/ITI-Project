@@ -101,7 +101,12 @@ def _execute_chat(
     now = datetime.now(UTC)
     asst_msg.content = final_state.final_answer
     asst_msg.detected_intent = final_state.detected_intent
-    asst_msg.selected_sources = final_state.sources_used
+    sanitized_sources = [
+        {k: (str(v) if isinstance(v, UUID) else v) for k, v in src.items()}
+        if isinstance(src, dict) else src
+        for src in final_state.sources_used
+    ]
+    asst_msg.selected_sources = sanitized_sources
     asst_msg.status = "completed"
     db.flush()
 

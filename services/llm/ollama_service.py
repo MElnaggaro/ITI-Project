@@ -117,8 +117,10 @@ class OllamaLLMService:
     ) -> str:
         """Synthesize natural language response using qwen3.5:4b."""
         system_prompt = (
-            "You are an Enterprise AI Assistant specializing in Text-to-SQL and Document RAG analysis.\n"
-            "Provide helpful, accurate, and professional responses in Arabic or English matching the user's language.\n"
+            "You are a helpful Enterprise AI Assistant.\n"
+            "Rule 1: Use ONLY the provided Database Query Results or Document Knowledge Context to answer.\n"
+            "Rule 2: Give a direct, factual answer based on the data. Do NOT say you lack information if data is provided.\n"
+            "Rule 3: Answer in the same language as the user question (Arabic or English).\n"
         )
 
         context_parts = []

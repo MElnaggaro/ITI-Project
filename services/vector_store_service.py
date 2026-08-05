@@ -27,8 +27,23 @@ class VectorStoreService:
                 api_key=settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None,
                 timeout=settings.qdrant_timeout_seconds,
             )
+            self._ensure_collection_exists()
         except Exception:
             self._client = None
+
+    def _ensure_collection_exists(self) -> None:
+        """Ensure target Qdrant collection exists before vector operations."""
+        if self._client:
+            try:
+                from qdrant_client.models import Distance, VectorParams
+                existing = [c.name for c in self._client.get_collections().collections]
+                if self._collection_name not in existing:
+                    self._client.create_collection(
+                        collection_name=self._collection_name,
+                        vectors_config=VectorParams(size=EMBEDDING_DIMENSION, distance=Distance.COSINE),
+                    )
+            except Exception:
+                pass
 
     def upsert_chunks(
         self,
@@ -135,17 +150,28 @@ class VectorStoreService:
         if self._client:
             try:
                 from qdrant_client.models import Filter, FieldCondition, MatchValue
-                search_result = self._client.search(
-                    collection_name=self._collection_name,
-                    query_vector=query_vector,
-                    query_filter=Filter(
-                        must=[
-                            FieldCondition(key="tenant_id", match=MatchValue(value=t_str)),
-                            FieldCondition(key="knowledge_base_id", match=MatchValue(value=kb_str)),
-                        ]
-                    ),
-                    limit=top_k,
+                q_filter = Filter(
+                    must=[
+                        FieldCondition(key="tenant_id", match=MatchValue(value=t_str)),
+                        FieldCondition(key="knowledge_base_id", match=MatchValue(value=kb_str)),
+                    ]
                 )
+                if hasattr(self._client, "query_points"):
+                    res_obj = self._client.query_points(
+                        collection_name=self._collection_name,
+                        query=query_vector,
+                        query_filter=q_filter,
+                        limit=top_k,
+                    )
+                    search_result = res_obj.points
+                else:
+                    search_result = self._client.search(
+                        collection_name=self._collection_name,
+                        query_vector=query_vector,
+                        query_filter=q_filter,
+                        limit=top_k,
+                    )
+
                 if search_result:
                     return [
                         {
@@ -156,7 +182,7 @@ class VectorStoreService:
                         }
                         for res in search_result
                     ]
-            except Exception:
+            except Exception as e:
                 pass
 
         candidates = [

@@ -45,12 +45,16 @@ class DocumentRetrievalService:
         if not knowledge_base_ids or not user_query.strip():
             return []
 
+        from uuid import UUID as PyUUID
+        t_uuid = PyUUID(str(context.tenant_id)) if not isinstance(context.tenant_id, PyUUID) else context.tenant_id
+        kb_uuids = [PyUUID(str(k)) if not isinstance(k, PyUUID) else k for k in knowledge_base_ids]
+
         # Validate knowledge bases belong to tenant
         valid_kbs = list(
             self.session.scalars(
                 select(KnowledgeBase)
-                .where(KnowledgeBase.tenant_id == context.tenant_id)
-                .where(KnowledgeBase.id.in_(knowledge_base_ids))
+                .where(KnowledgeBase.tenant_id == t_uuid)
+                .where(KnowledgeBase.id.in_(kb_uuids))
             ).all()
         )
         if not valid_kbs:
@@ -75,7 +79,7 @@ class DocumentRetrievalService:
                 chunk_id = UUID(res["chunk_id"])
                 chunk_obj = self.session.scalar(
                     select(DocumentChunk)
-                    .where(DocumentChunk.tenant_id == context.tenant_id)
+                    .where(DocumentChunk.tenant_id == t_uuid)
                     .where(DocumentChunk.id == chunk_id)
                 )
                 if not chunk_obj:
