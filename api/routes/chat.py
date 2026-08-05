@@ -60,7 +60,7 @@ def _execute_chat(
     msg_repo = MessageRepository(db)
     citation_service = CitationService(db)
 
-    # 1. Persist User Prompt Message
+    # 1. Persist User Prompt Message & Assistant Message Shell
     user_msg = Message(
         id=user_msg_id,
         tenant_id=context.tenant_id,
@@ -71,6 +71,18 @@ def _execute_chat(
         status="completed",
     )
     msg_repo.create(user_msg)
+
+    asst_msg = Message(
+        id=asst_msg_id,
+        tenant_id=context.tenant_id,
+        conversation_id=conv.id,
+        parent_message_id=user_msg_id,
+        role="assistant",
+        message_type="text",
+        content="",
+        status="processing",
+    )
+    msg_repo.create(asst_msg)
 
     # 2. Run Chat Pipeline Graph
     state = AgentState(
@@ -85,21 +97,13 @@ def _execute_chat(
     orchestrator = ChatOrchestrator(db)
     final_state = orchestrator.run(state)
 
-    # 3. Persist Assistant Answer Message
+    # 3. Update Assistant Answer Message
     now = datetime.now(UTC)
-    asst_msg = Message(
-        id=asst_msg_id,
-        tenant_id=context.tenant_id,
-        conversation_id=conv.id,
-        parent_message_id=user_msg_id,
-        role="assistant",
-        message_type="text",
-        content=final_state.final_answer,
-        detected_intent=final_state.detected_intent,
-        selected_sources=final_state.sources_used,
-        status="completed",
-    )
-    msg_repo.create(asst_msg)
+    asst_msg.content = final_state.final_answer
+    asst_msg.detected_intent = final_state.detected_intent
+    asst_msg.selected_sources = final_state.sources_used
+    asst_msg.status = "completed"
+    db.flush()
 
     # 4. Update Conversation Timestamps
     conv.last_message_at = now

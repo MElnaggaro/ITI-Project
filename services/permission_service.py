@@ -125,14 +125,18 @@ class PermissionService:
             effective_grants = [g for g in role_grants if g.can_read]
 
         if not effective_grants:
+            from uuid import UUID as PyUUID
             from models.user import User
+            u_uuid = PyUUID(str(user_id)) if not isinstance(user_id, PyUUID) else user_id
+            t_uuid = PyUUID(str(tenant_id)) if not isinstance(tenant_id, PyUUID) else tenant_id
             user_obj = self.session.scalar(
-                select(User).where(User.id == user_id).where(User.tenant_id == tenant_id)
+                select(User).where(User.id == u_uuid).where(User.tenant_id == t_uuid)
             )
             if user_obj and user_obj.is_tenant_admin:
+                tbl_uuid = PyUUID(str(table_id)) if not isinstance(table_id, PyUUID) else table_id
                 cols = list(
                     self.session.scalars(
-                        select(DatabaseColumn).where(DatabaseColumn.table_id == table_id)
+                        select(DatabaseColumn).where(DatabaseColumn.table_id == tbl_uuid)
                     ).all()
                 )
                 col_rules = {

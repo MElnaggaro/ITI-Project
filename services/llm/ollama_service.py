@@ -83,9 +83,11 @@ class OllamaLLMService:
     def generate_sql(self, schema_context: str, user_prompt: str) -> str:
         """Generate candidate SQL query for given schema context and prompt."""
         system_prompt = (
-            "You are an expert Text-to-SQL engineer. Output ONLY a single valid PostgreSQL SELECT statement.\n"
-            "Do NOT include markdown formatting, code blocks (```sql), or explanations.\n"
-            "Strictly use permitted schema tables and columns provided.\n\n"
+            "You are a strict, precise Text-to-SQL engineer. Write a simple, valid SQL SELECT query.\n"
+            "Rule 1: Output ONLY the SQL SELECT statement. No explanations, no markdown, no quotes around query.\n"
+            "Rule 2: Use ONLY columns and tables explicitly listed in the schema below.\n"
+            "Rule 3: Keep queries simple and avoid unnecessary JOINs unless explicitly required by foreign keys.\n"
+            "Rule 4: Strictly DO NOT use backticks (`). Use standard unquoted column/table names or PostgreSQL double quotes (\").\n\n"
             f"{schema_context}"
         )
 
@@ -93,9 +95,9 @@ class OllamaLLMService:
 
         try:
             raw_output = self.chat_completion(messages, system_prompt)
-            # Clean markdown code blocks if any returned
+            # Clean markdown code blocks and backtick quotes if any returned
             cleaned_sql = re.sub(r"```(?:sql)?\s*", "", raw_output, flags=re.IGNORECASE)
-            cleaned_sql = re.sub(r"```", "", cleaned_sql).strip()
+            cleaned_sql = re.sub(r"```", "", cleaned_sql).replace("`", "").strip()
             # Ensure it starts with SELECT or WITH
             if not (cleaned_sql.upper().startswith("SELECT") or cleaned_sql.upper().startswith("WITH")):
                 match = re.search(r"\b(SELECT|WITH)\b.*", cleaned_sql, re.IGNORECASE | re.DOTALL)
