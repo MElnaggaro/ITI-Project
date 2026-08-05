@@ -40,8 +40,15 @@
     messagesContainer: document.getElementById('messages-container'),
     chatForm: document.getElementById('chat-form'),
     chatInput: document.getElementById('chat-input'),
-    chatConnectionSelect: document.getElementById('chat-connection-select'),
-    chatKbSelect: document.getElementById('chat-kb-select'),
+    chatConnectionContainer: document.getElementById('chat-connection-select-container'),
+    chatConnectionSelected: document.querySelector('#chat-connection-select-container .select-selected'),
+    chatConnectionSelectedText: document.querySelector('#chat-connection-select-container .selected-text'),
+    chatConnectionOptions: document.getElementById('chat-connection-options'),
+
+    chatKbContainer: document.getElementById('chat-kb-select-container'),
+    chatKbSelected: document.querySelector('#chat-kb-select-container .select-selected'),
+    chatKbSelectedText: document.querySelector('#chat-kb-select-container .selected-text'),
+    chatKbOptions: document.getElementById('chat-kb-options'),
     chatStreamToggle: document.getElementById('chat-stream-toggle'),
     btnNewChat: document.getElementById('btn-new-conversation'),
     btnClearChat: document.getElementById('btn-clear-chat'),
@@ -265,18 +272,42 @@
   }
 
   function populateConnectionSelects() {
-    const optionsHtml = '<option value="">-- No Database Connection --</option>' +
-      state.connections.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.database_type})</option>`).join('');
-    elements.chatConnectionSelect.innerHTML = optionsHtml;
-
-    if (state.connections.length > 0) {
-      elements.chatConnectionSelect.value = state.connections[0].id;
-      if (!state.activeConnectionId) {
-        inspectSchema(state.connections[0].id);
-      }
+    let optionsHtml = '';
+    
+    if (state.connections.length === 0) {
+      optionsHtml = '<div>No connections available</div>';
+      elements.chatConnectionSelectedText.textContent = '-- No Database Connection --';
+    } else {
+      state.connections.forEach((conn) => {
+        optionsHtml += `
+          <div>
+            <input type="checkbox" value="${conn.id}" id="conn_${conn.id}">
+            <label for="conn_${conn.id}">${escapeHtml(conn.name)}</label>
+          </div>
+        `;
+      });
+      elements.chatConnectionSelectedText.textContent = '0 Databases Selected';
     }
+    
+    elements.chatConnectionOptions.innerHTML = optionsHtml;
+    
+    // Attach change events to checkboxes
+    const checkboxes = elements.chatConnectionOptions.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const checkedCount = Array.from(checkboxes).filter(c => c.checked).length;
+        if (checkedCount === 0) {
+          elements.chatConnectionSelectedText.textContent = '0 Databases Selected';
+        } else if (checkedCount === 1) {
+          const firstCheckedId = Array.from(checkboxes).find(c => c.checked).value;
+          const conn = state.connections.find(c => c.id === firstCheckedId);
+          elements.chatConnectionSelectedText.textContent = conn ? conn.name : '1 Selected';
+        } else {
+          elements.chatConnectionSelectedText.textContent = `${checkedCount} Databases Selected`;
+        }
+      });
+    });
   }
-
 
   async function testConnection(id) {
     try {
@@ -360,20 +391,49 @@
   }
 
   function populateKbSelects() {
-    const chatKbHtml = '<option value="">-- No Knowledge Base --</option>' +
-      state.knowledgeBases.map((kb) => `<option value="${kb.id}">${escapeHtml(kb.name)}</option>`).join('');
-    elements.chatKbSelect.innerHTML = chatKbHtml;
-
-    const uploadKbHtml = '<option value="">-- Select Knowledge Base --</option>' +
-      state.knowledgeBases.map((kb) => `<option value="${kb.id}">${escapeHtml(kb.name)}</option>`).join('');
-    elements.uploadKbSelect.innerHTML = uploadKbHtml;
-
-    if (state.knowledgeBases.length > 0) {
-      elements.chatKbSelect.value = state.knowledgeBases[0].id;
-      elements.uploadKbSelect.value = state.knowledgeBases[0].id;
+    let optionsHtml = '';
+    
+    if (state.knowledgeBases.length === 0) {
+      optionsHtml = '<div>No knowledge bases available</div>';
+      elements.chatKbSelectedText.textContent = '-- No Knowledge Base --';
+    } else {
+      state.knowledgeBases.forEach((kb) => {
+        optionsHtml += `
+          <div>
+            <input type="checkbox" value="${kb.id}" id="kb_${kb.id}">
+            <label for="kb_${kb.id}">${escapeHtml(kb.name)}</label>
+          </div>
+        `;
+      });
+      elements.chatKbSelectedText.textContent = '0 KBs Selected';
     }
-  }
 
+    elements.chatKbOptions.innerHTML = optionsHtml;
+    
+    // Attach change events to checkboxes
+    const checkboxes = elements.chatKbOptions.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      cb.addEventListener('change', () => {
+        const checkedCount = Array.from(checkboxes).filter(c => c.checked).length;
+        if (checkedCount === 0) {
+          elements.chatKbSelectedText.textContent = '0 KBs Selected';
+        } else if (checkedCount === 1) {
+          const firstCheckedId = Array.from(checkboxes).find(c => c.checked).value;
+          const kb = state.knowledgeBases.find(k => k.id === firstCheckedId);
+          elements.chatKbSelectedText.textContent = kb ? kb.name : '1 Selected';
+        } else {
+          elements.chatKbSelectedText.textContent = `${checkedCount} KBs Selected`;
+        }
+      });
+    });
+
+    // Populate the file upload KB select (keeping it as standard select for now)
+    let uploadOptionsHtml = '<option value="">-- Select Knowledge Base --</option>';
+    state.knowledgeBases.forEach((kb) => {
+      uploadOptionsHtml += `<option value="${kb.id}">${escapeHtml(kb.name)}</option>`;
+    });
+    elements.uploadKbSelect.innerHTML = uploadOptionsHtml;
+  }
 
   async function loadFiles() {
     try {
@@ -564,12 +624,21 @@
     elements.chatInput.value = '';
 
     // Prepare Payload
+    // Prepare Payload
+    // Get all checked checkboxes for DBs
+    const dbCheckboxes = elements.chatConnectionOptions.querySelectorAll('input[type="checkbox"]:checked');
+    const dbIds = Array.from(dbCheckboxes).map(cb => cb.value);
+    
+    // Get all checked checkboxes for KBs
+    const kbCheckboxes = elements.chatKbOptions.querySelectorAll('input[type="checkbox"]:checked');
+    const kbIds = Array.from(kbCheckboxes).map(cb => cb.value);
+
     const payload = {
       message: text,
       conversation_id: state.conversationId,
-      database_connection_ids: elements.chatConnectionSelect.value ? [elements.chatConnectionSelect.value] : [],
-      knowledge_base_ids: elements.chatKbSelect.value ? [elements.chatKbSelect.value] : [],
       stream: elements.chatStreamToggle.checked,
+      database_connection_ids: dbIds,
+      knowledge_base_ids: kbIds,
     };
 
     // Render Typing Indicator Placeholder
@@ -709,7 +778,7 @@
     const wrapper = document.getElementById(messageId);
     if (!wrapper) return;
     const contentDiv = wrapper.querySelector('.message-content');
-    if (contentDiv) contentDiv.innerHTML = `<p>${formatMarkdown(text)}</p>`;
+    if (contentDiv) contentDiv.innerHTML = `<div class="final-answer">${formatMarkdown(text)}</div>`;
   }
 
 
@@ -764,7 +833,7 @@
       `;
     }
 
-    let contentHtml = `<p>${formatMarkdown(data.answer || '')}</p>`;
+    let contentHtml = `<div class="final-answer">${formatMarkdown(data.answer || '')}</div>`;
 
     // Render SQL Code Box if SQL returned
     if (data.sql && data.sql.query) {
@@ -1000,9 +1069,52 @@
   /* ═══════════════════════════════════════════════════════════════════ */
   /* INITIALIZATION ENTRYPOINT                                           */
   /* ═══════════════════════════════════════════════════════════════════ */
+  function initCustomSelects() {
+    const selects = [
+      {
+        container: elements.chatConnectionContainer,
+        options: elements.chatConnectionOptions,
+        selected: elements.chatConnectionSelected
+      },
+      {
+        container: elements.chatKbContainer,
+        options: elements.chatKbOptions,
+        selected: elements.chatKbSelected
+      }
+    ];
+
+    selects.forEach(s => {
+      if(s.selected) {
+        s.selected.addEventListener('click', function(e) {
+          e.stopPropagation();
+          // Close others
+          selects.forEach(other => {
+            if (other.options !== s.options) {
+              other.options.classList.add('select-hide');
+              if(other.selected) other.selected.classList.remove('select-arrow-active');
+            }
+          });
+          
+          s.options.classList.toggle('select-hide');
+          this.classList.toggle('select-arrow-active');
+        });
+      }
+    });
+
+    document.addEventListener('click', function(e) {
+      selects.forEach(s => {
+        if (s.container && !s.container.contains(e.target)) {
+          s.options.classList.add('select-hide');
+          if(s.selected) s.selected.classList.remove('select-arrow-active');
+        }
+      });
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initEventHandlers();
+    initCustomSelects();
     ensureAutoLogin();
   });
 })();

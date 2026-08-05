@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Enterprise Multi-Tenant Text-to-SQL & Document Chat Platform</title>
+  <title>AI Query Platform — Text-to-SQL & RAG</title>
 
   <!-- Google Fonts: Inter & Outfit & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -20,7 +20,7 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <!-- Custom CSS -->
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=2.0">
 </head>
 <body class="bg-dark text-light antialiased selection-accent">
 
@@ -109,17 +109,29 @@
             <!-- Active Database Connections Selector -->
             <div class="context-group">
               <label class="input-label"><i data-lucide="database"></i> Query Database</label>
-              <select id="chat-connection-select" class="form-select">
-                <option value="">-- No Database Connection --</option>
-              </select>
+              <div class="custom-select" id="chat-connection-select-container">
+                <div class="select-selected">
+                  <span class="selected-text">-- No Database Connection --</span>
+                  <i data-lucide="chevron-down"></i>
+                </div>
+                <div class="select-items select-hide" id="chat-connection-options">
+                  <!-- Checkboxes will be injected here by JS -->
+                </div>
+              </div>
             </div>
 
             <!-- Active Knowledge Bases Selector -->
             <div class="context-group">
               <label class="input-label"><i data-lucide="book-open"></i> Knowledge Base (RAG)</label>
-              <select id="chat-kb-select" class="form-select">
-                <option value="">-- No Knowledge Base --</option>
-              </select>
+              <div class="custom-select" id="chat-kb-select-container">
+                <div class="select-selected">
+                  <span class="selected-text">-- No Knowledge Base --</span>
+                  <i data-lucide="chevron-down"></i>
+                </div>
+                <div class="select-items select-hide" id="chat-kb-options">
+                  <!-- Checkboxes will be injected here by JS -->
+                </div>
+              </div>
             </div>
 
             <!-- Streaming Toggle -->
@@ -561,7 +573,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Main JavaScript App -->
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js?v=2.0"></script>
   <script>
     // Initialize Lucide Icons
     lucide.createIcons();
