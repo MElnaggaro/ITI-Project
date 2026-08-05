@@ -75,7 +75,7 @@ class ChatOrchestrator:
         if state.retrieved_evidence:
             doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:300]}" for e in state.retrieved_evidence[:3]])
 
-        # Try Ollama (qwen2.5:0.5b) Answer Synthesis if available
+        # Try Ollama (qwen3.5:4b) Answer Synthesis if available
         try:
             from services.llm.ollama_service import OllamaLLMService
 

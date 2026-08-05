@@ -58,7 +58,7 @@ class SQLGeneratorService:
         table_names = list(resolved_schema.tables.keys())
         first_table = table_names[0] if table_names else "users"
 
-        # 1. Try Ollama LLM (qwen2.5:0.5b) Generation
+        # 1. Try Ollama LLM (qwen3.5:4b) Generation
         from services.llm.ollama_service import OllamaLLMService
         ollama_svc = OllamaLLMService()
         if ollama_svc.is_enabled():
