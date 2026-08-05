@@ -538,6 +538,36 @@ input:checked + .slider:before { transform: translateX(18px); }
   padding: 1rem 1.25rem;
   border-radius: var(--radius-lg);
   font-size: 0.9rem;
+  line-height: 1.6;
+}
+.message-content strong {
+  font-weight: 700;
+  color: #ffffff;
+}
+.message-content em {
+  font-style: italic;
+  color: var(--accent-light);
+}
+.message-content code {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 0.85em;
+  color: #a5b4fc;
+}
+.message-content h1, .message-content h2, .message-content h3, .message-content h4 {
+  font-weight: 700;
+  color: #fff;
+  margin-top: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.message-content ul, .message-content ol {
+  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+}
+.message-content li {
+  margin-bottom: 0.25rem;
 }
 .message-wrapper.user .message-bubble {
   background: var(--accent);

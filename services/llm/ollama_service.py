@@ -53,7 +53,7 @@ class OllamaLLMService:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+            with urllib.request.urlopen(req, timeout=min(self.timeout, 15)) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
 
                 # 1. Check Native Ollama format: {"message": {"content": "..."}}
@@ -87,7 +87,10 @@ class OllamaLLMService:
             "Rule 1: Output ONLY the SQL SELECT statement. No explanations, no markdown, no quotes around query.\n"
             "Rule 2: Use ONLY columns and tables explicitly listed in the schema below.\n"
             "Rule 3: Keep queries simple and avoid unnecessary JOINs unless explicitly required by foreign keys.\n"
-            "Rule 4: Strictly DO NOT use backticks (`). Use standard unquoted column/table names or PostgreSQL double quotes (\").\n\n"
+            "Rule 4: Strictly DO NOT use backticks (`). Use standard unquoted column/table names or PostgreSQL double quotes (\").\n"
+            "Rule 5: Strictly DO NOT use placeholder strings like 'your_code_here'. Query actual schema columns directly.\n"
+            "Rule 6: For listing tables, do NOT write 'SHOW TABLES'. Use 'SELECT table_name FROM database_tables' or 'SELECT table_name FROM information_schema.tables'.\n"
+            "Rule 7: For active database connections, filter by 'is_active = true' or 'status = \'healthy\''.\n\n"
             f"{schema_context}"
         )
 
@@ -117,10 +120,13 @@ class OllamaLLMService:
     ) -> str:
         """Synthesize natural language response using qwen3.5:4b."""
         system_prompt = (
-            "You are a helpful Enterprise AI Assistant.\n"
-            "Rule 1: Use ONLY the provided Database Query Results or Document Knowledge Context to answer.\n"
-            "Rule 2: Give a direct, factual answer based on the data. Do NOT say you lack information if data is provided.\n"
-            "Rule 3: Answer in the same language as the user question (Arabic or English).\n"
+            "You are a direct Enterprise AI Assistant.\n"
+            "CRITICAL RULES:\n"
+            "1. Output ONLY the direct final answer. Absolutely NO preamble, NO 'The user query is asking...', NO step-by-step reasoning.\n"
+            "2. State the exact facts directly from the provided Database Query Results and Document Context.\n"
+            "3. Do NOT output SQL code blocks or JSON unless asked.\n"
+            "4. Match the user's language (Arabic or English).\n"
+            "5. Never output raw ASCII box art or borders (e.g., +---+ or |---|). Format all lists and tables cleanly using standard markdown bullet points.\n"
         )
 
         context_parts = []

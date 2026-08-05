@@ -683,11 +683,33 @@
     }
   }
 
+  function formatMarkdown(text) {
+    if (!text) return '';
+    if (window.marked && typeof window.marked.parse === 'function') {
+      try {
+        return window.marked.parse(text);
+      } catch (e) {
+        console.warn('Marked parse failed, using fallback:', e);
+      }
+    }
+    let html = escapeHtml(text);
+    html = html.replace(/```(?:sql|json|text)?\s*([\s\S]*?)```/g, '<pre class="sql-code"><code>$1</code></pre>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\*\*([\s\S]*?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([\s\S]*?)__/g, '<strong>$1</strong>');
+    html = html.replace(/\*([\s\S]*?)\*/g, '<em>$1</em>');
+    html = html.replace(/^### (.*$)/gim, '<h4 style="font-weight:700;margin-top:0.5rem;">$1</h4>');
+    html = html.replace(/^## (.*$)/gim, '<h3 style="font-weight:700;margin-top:0.5rem;">$1</h3>');
+    html = html.replace(/^# (.*$)/gim, '<h2 style="font-weight:700;margin-top:0.5rem;">$1</h2>');
+    html = html.replace(/\n/g, '<br>');
+    return html;
+  }
+
   function updateAssistantContent(messageId, text) {
     const wrapper = document.getElementById(messageId);
     if (!wrapper) return;
-    const contentDiv = wrapper.querySelector('.message-content p');
-    if (contentDiv) contentDiv.textContent = text;
+    const contentDiv = wrapper.querySelector('.message-content');
+    if (contentDiv) contentDiv.innerHTML = `<p>${formatMarkdown(text)}</p>`;
   }
 
 
@@ -714,7 +736,7 @@
             : ''
         }
         <div class="message-content">
-          <p>${escapeHtml(msg.content)}</p>
+          <p>${formatMarkdown(msg.content)}</p>
         </div>
       </div>
     `;
@@ -742,7 +764,7 @@
       `;
     }
 
-    let contentHtml = `<p>${escapeHtml(data.answer || '')}</p>`;
+    let contentHtml = `<p>${formatMarkdown(data.answer || '')}</p>`;
 
     // Render SQL Code Box if SQL returned
     if (data.sql && data.sql.query) {

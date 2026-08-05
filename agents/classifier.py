@@ -8,13 +8,13 @@ DB_KEYWORDS = frozenset({
     "select", "sql", "query", "table", "tables", "column", "columns", "row", "rows",
     "database", "db", "count", "sum", "avg", "min", "max", "where", "join", "joins",
     "group", "order", "filter", "records", "schema", "schemas", "primary", "foreign",
-    "insert", "update", "delete", "from"
+    "insert", "update", "delete", "from", "knowledge_base", "knowledge_bases", "knowledgebase"
 })
 
 DOC_KEYWORDS = frozenset({
     "document", "documents", "doc", "docs", "pdf", "file", "files", "page", "pages",
     "article", "report", "reports", "section", "paragraph", "summary", "summarize",
-    "text", "content", "excerpt", "policy", "manual", "knowledge", "kb", "attachment",
+    "text", "content", "excerpt", "policy", "manual", "attachment",
     "citation", "evidence", "read"
 })
 

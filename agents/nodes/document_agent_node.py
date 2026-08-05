@@ -19,7 +19,7 @@ def document_agent_node(state: AgentState, db: Session) -> AgentState:
             context=state.context,
             knowledge_base_ids=state.knowledge_base_ids,
             user_query=state.user_message,
-            top_k=3,
+            top_k=5,
         )
         state.retrieved_evidence = evidence
         for item in evidence:

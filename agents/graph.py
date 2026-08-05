@@ -85,7 +85,10 @@ class ChatOrchestrator:
                     document_context=doc_context,
                 )
                 if answer:
-                    return answer
+                    ans_clean = answer.strip()
+                    if "Final answer:" in ans_clean:
+                        ans_clean = ans_clean.split("Final answer:")[-1].strip()
+                    return ans_clean
         except Exception:
             pass
 
