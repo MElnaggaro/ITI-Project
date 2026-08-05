@@ -1,22 +1,27 @@
 """Unit tests for SQLValidatorService AST validation, safety checks, and filter injection."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-import pytest
 import sqlglot.expressions as exp
 
 from schemas.resolved_schema import ResolvedColumn, ResolvedSchema, ResolvedTable
 from services.sql_validator_service import SQLValidatorService
 
 
-def build_test_schema(tenant_id=None, user_id=None):
+def build_test_schema(tenant_id: UUID | None = None, user_id: UUID | None = None) -> ResolvedSchema:
     """Helper to build a valid ResolvedSchema fixture for testing."""
     t_id = tenant_id or uuid4()
     u_id = user_id or uuid4()
     conn_id = uuid4()
 
-    col1 = ResolvedColumn(column_id=uuid4(), column_name="id", data_type="uuid", is_primary_key=True, is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=True)
-    col2 = ResolvedColumn(column_id=uuid4(), column_name="status", data_type="varchar", is_primary_key=False, is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=True)
+    col1 = ResolvedColumn(
+        column_id=uuid4(), column_name="id", data_type="uuid", is_primary_key=True,
+        is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=True
+    )
+    col2 = ResolvedColumn(
+        column_id=uuid4(), column_name="status", data_type="varchar", is_primary_key=False,
+        is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=True
+    )
 
     filter_ast = exp.EQ(
         this=exp.Column(this=exp.Identifier(this="status")),
@@ -47,7 +52,7 @@ def build_test_schema(tenant_id=None, user_id=None):
     )
 
 
-def test_sql_validator_valid_select_query():
+def test_sql_validator_valid_select_query() -> None:
     """Verify clean SELECT query is authorized, row-filter injected, and LIMIT clamped."""
     schema = build_test_schema()
     validator = SQLValidatorService(dialect="postgres")
@@ -58,11 +63,12 @@ def test_sql_validator_valid_select_query():
     assert plan.validation_status == "valid"
     assert plan.query_type == "select"
     assert "orders" in plan.referenced_tables
+    assert plan.final_sql is not None
     assert "status = 'active'" in plan.final_sql
     assert "LIMIT 1000" in plan.final_sql
 
 
-def test_sql_validator_disallowed_dml_and_ddl():
+def test_sql_validator_disallowed_dml_and_ddl() -> None:
     """Verify validator rejects INSERT, UPDATE, DELETE, DROP, ALTER, CREATE."""
     schema = build_test_schema()
     validator = SQLValidatorService(dialect="postgres")
@@ -82,7 +88,7 @@ def test_sql_validator_disallowed_dml_and_ddl():
         assert "strictly prohibited" in plan.validation_errors[0]
 
 
-def test_sql_validator_unpermitted_table_rejection():
+def test_sql_validator_unpermitted_table_rejection() -> None:
     """Verify validator rejects query referencing an unpermitted table."""
     schema = build_test_schema()
     validator = SQLValidatorService(dialect="postgres")
@@ -94,7 +100,7 @@ def test_sql_validator_unpermitted_table_rejection():
     assert "not permitted or does not exist" in plan.validation_errors[0]
 
 
-def test_sql_validator_limit_clamping():
+def test_sql_validator_limit_clamping() -> None:
     """Verify validator clamps high limit values to 1000."""
     schema = build_test_schema()
     validator = SQLValidatorService(dialect="postgres")
@@ -103,4 +109,5 @@ def test_sql_validator_limit_clamping():
     plan = validator.validate_and_rewrite(candidate_sql, schema)
 
     assert plan.validation_status == "valid"
+    assert plan.final_sql is not None
     assert "LIMIT 1000" in plan.final_sql

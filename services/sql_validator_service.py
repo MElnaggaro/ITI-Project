@@ -63,7 +63,9 @@ class SQLValidatorService:
                 normalized_sql="",
                 query_type="disallowed",
                 validation_status="invalid",
-                validation_errors=["Comments in SQL queries are strictly prohibited due to security policy."],
+                validation_errors=[
+                    "Comments in SQL queries are strictly prohibited due to security policy."
+                ],
             )
 
         # 2. Parse SQL candidate
@@ -92,14 +94,17 @@ class SQLValidatorService:
 
         # 3. Enforce Read-Only AST
         if isinstance(ast, DISALLOWED_NODE_TYPES) or any(
-            ast.find_all(DISALLOWED_NODE_TYPES)
+            next(ast.find_all(t), None) is not None for t in DISALLOWED_NODE_TYPES
         ):
             return ValidatedQueryPlan(
                 generated_sql=candidate_sql,
                 normalized_sql=ast.sql(dialect=self.dialect),
                 query_type="disallowed",
                 validation_status="invalid",
-                validation_errors=["Data modification, procedural commands, and DDL statements are strictly prohibited."],
+                validation_errors=[
+                    "Data modification, procedural commands, and DDL statements "
+                    "are strictly prohibited."
+                ],
             )
 
         # Determine query type
@@ -155,7 +160,9 @@ class SQLValidatorService:
             if tbl_name and tbl_name in resolved_schema.tables:
                 tbl_schema = resolved_schema.tables[tbl_name]
                 if c_name not in tbl_schema.columns or not tbl_schema.columns[c_name].can_read:
-                    errors.append(f"Referenced column '{c_name}' on table '{tbl_name}' is not permitted.")
+                    errors.append(
+                        f"Referenced column '{c_name}' on table '{tbl_name}' is not permitted."
+                    )
                 else:
                     ref_col_str = f"{tbl_name}.{c_name}"
                     if ref_col_str not in referenced_columns:
@@ -176,19 +183,19 @@ class SQLValidatorService:
             if tbl.compiled_row_filters:
                 applied_filters_meta.extend(tbl.raw_row_filters)
                 for filter_ast in tbl.compiled_row_filters:
-                    ast = ast.where(filter_ast)
+                    ast = ast.where(filter_ast)  # type: ignore[union-attr]
 
         # 6. Limit Clamping
-        existing_limit = ast.args.get("limit")
+        existing_limit = ast.args.get("limit")  # type: ignore[union-attr]
         if existing_limit is None:
-            ast = ast.limit(MAX_ROW_LIMIT)
+            ast = ast.limit(MAX_ROW_LIMIT)  # type: ignore[union-attr]
         else:
             try:
                 val = int(existing_limit.expression.this)
                 if val > MAX_ROW_LIMIT:
-                    ast = ast.limit(MAX_ROW_LIMIT)
+                    ast = ast.limit(MAX_ROW_LIMIT)  # type: ignore[union-attr]
             except (ValueError, AttributeError):
-                ast = ast.limit(MAX_ROW_LIMIT)
+                ast = ast.limit(MAX_ROW_LIMIT)  # type: ignore[union-attr]
 
         # 7. Final Re-Validation
         final_sql = ast.sql(dialect=self.dialect)
