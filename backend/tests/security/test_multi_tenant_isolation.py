@@ -84,3 +84,49 @@ def test_cross_tenant_resource_access_rejected(client: TestClient, db_session: S
     # 10. Assert User A CANNOT access Tenant B's Message SQL Trace
     res_sql = client.get(f"/api/messages/{msg_b.id}/sql", headers=headers_a)
     assert res_sql.status_code in {403, 404}
+
+
+def test_cross_tenant_audit_log_isolation(client: TestClient, db_session: Session):
+    """Assert Tenant A querying audit logs repository receives strictly Tenant A's records."""
+    from models.audit_log import AuditLog
+    from repositories.audit_log_repository import AuditLogRepository
+    tenant_repo = TenantRepository(db_session)
+    user_repo = UserRepository(db_session)
+    audit_repo = AuditLogRepository(db_session)
+
+    tenant_a = tenant_repo.create("Audit Tenant A", "audit-t-a")
+    user_a = user_repo.create(tenant_a.id, "audita@iso.com", hash_password("Pass123!"))
+
+    tenant_b = tenant_repo.create("Audit Tenant B", "audit-t-b")
+    user_b = user_repo.create(tenant_b.id, "auditb@iso.com", hash_password("Pass123!"))
+
+    log_a = AuditLog(tenant_id=tenant_a.id, user_id=user_a.id, action="USER_LOGIN_A")
+    log_b = AuditLog(tenant_id=tenant_b.id, user_id=user_b.id, action="SECRET_ACTION_B")
+
+    db_session.add_all([log_a, log_b])
+    db_session.commit()
+
+    logs_for_a = audit_repo.list_by_tenant(tenant_a.id)
+    actions_a = [log.action for log in logs_for_a]
+
+    assert "USER_LOGIN_A" in actions_a
+    assert "SECRET_ACTION_B" not in actions_a
+
+
+
+
+def test_worker_payload_tenant_context_isolation():
+    """Assert worker task payload validates tenant context and blocks forbidden secrets."""
+    import pytest
+    from workers.payloads import WorkerTaskContext, validate_worker_payload
+
+    # Valid task context
+    tenant_id = uuid4()
+    resource_id = uuid4()
+    context = WorkerTaskContext(tenant_id=tenant_id, resource_id=resource_id, request_id="req-123")
+    assert context.tenant_id == tenant_id
+
+    # Forbidden secret payload raises error
+    with pytest.raises(ValueError, match="forbidden"):
+        validate_worker_payload({"tenant_id": str(tenant_id), "password": "supersecretpassword"})
+

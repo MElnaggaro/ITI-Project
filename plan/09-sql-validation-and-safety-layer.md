@@ -67,7 +67,7 @@ Convert an untrusted generated SQL candidate into an immutable, dialect-aware, r
 
 ## Definition of Done
 
-- [x] Every executable plan originates from a single parsed, recursively read-only AST and has passed final authorization after server-side rewrites.
+- [x] Every executable plan originates from a single parsed, recursively read-only AST and has passed final authorization after server-side rewrites (see [docs/ACCEPTANCE_CRITERIA_SAFE_SQL.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_SAFE_SQL.md)).
 - [x] Mandatory row filters and maximum result limits are backend-owned, parameterized, and immutable to the LLM.
 - [x] Rejected SQL receives a stable sanitized status and is never sent to a source connection.
 

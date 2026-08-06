@@ -70,7 +70,7 @@ Implement tenant-administrator management of encrypted, runtime live-source conn
 
 ## Definition of Done
 
-- [x] A tenant administrator can securely store, list, inspect, update, test, and delete a PostgreSQL source connection at runtime without source-code changes.
+- [x] A tenant administrator can securely store, list, inspect, update, test, and delete a PostgreSQL source connection at runtime without source-code changes (see [docs/ACCEPTANCE_CRITERIA_RUNTIME_CONNECTIONS.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_RUNTIME_CONNECTIONS.md)).
 - [x] Connection lifecycle state prevents untested, stale, inactive, cross-tenant, or unsupported sources from reaching chat workflows.
 - [x] Connection management protects source credentials and never copies customer business data into platform storage.
 - [x] Non-PostgreSQL adapter paths are visibly extension points, not falsely advertised as supported functionality.

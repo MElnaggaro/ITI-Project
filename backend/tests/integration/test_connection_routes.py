@@ -87,3 +87,54 @@ def test_connection_lifecycle_and_secret_redaction(client: TestClient, db_sessio
     # 5. Delete connection
     del_resp = client.delete(f"/api/database-connections/{conn_id}", headers=headers)
     assert del_resp.status_code == 204
+
+
+def test_connection_ssrf_host_rejection(client: TestClient, db_session: Session):
+    """Assert connection creation with restricted loopback or metadata IP returns 400 Bad Request."""
+    tenant_repo = TenantRepository(db_session)
+    user_repo = UserRepository(db_session)
+
+    tenant = tenant_repo.create("SSRF Tenant", "ssrf-tenant")
+    admin_user = user_repo.create(
+        tenant_id=tenant.id,
+        email="ssrf_admin@conn.com",
+        password_hash=hash_password("Pass123!"),
+        is_tenant_admin=True,
+    )
+    db_session.commit()
+
+    admin_token = create_access_token(tenant.id, admin_user.id, is_tenant_admin=True)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Attempt loopback target
+    resp_loopback = client.post(
+        "/api/database-connections",
+        json={
+            "name": "Localhost Postgres",
+            "database_type": "postgresql",
+            "host": "127.0.0.1",
+            "port": 5432,
+            "database_name": "app_db",
+            "username": "admin_user",
+            "password": "SuperSecretPassword123!",
+        },
+        headers=headers,
+    )
+    assert resp_loopback.status_code == 400
+
+    # Attempt metadata target
+    resp_metadata = client.post(
+        "/api/database-connections",
+        json={
+            "name": "AWS Metadata Postgres",
+            "database_type": "postgresql",
+            "host": "169.254.169.254",
+            "port": 5432,
+            "database_name": "app_db",
+            "username": "admin_user",
+            "password": "SuperSecretPassword123!",
+        },
+        headers=headers,
+    )
+    assert resp_metadata.status_code == 400
+

@@ -74,7 +74,7 @@ Resolve one request-specific, tenant-scoped schema for the reusable database age
 ## Definition of Done
 
 - [x] The one generic database agent can receive a deterministic, request-specific allowed schema without a per-table or per-tenant agent design.
-- [x] Every exposed table, column, relationship, operation, mask, and row predicate has an explicit tenant-scoped authorization basis.
+- [x] Every exposed table, column, relationship, operation, mask, and row predicate has an explicit tenant-scoped authorization basis (see [docs/ACCEPTANCE_CRITERIA_PERMISSIONS.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_PERMISSIONS.md)).
 - [x] Row filters have a documented constrained grammar, direct/role precedence, trusted-context binding, parameterized AST compilation, and fail-closed behavior.
 - [x] Later SQL phases can validate and execute only against the resolved schema while keeping mandatory filters outside LLM control.
 

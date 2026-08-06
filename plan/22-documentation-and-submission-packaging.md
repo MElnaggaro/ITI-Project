@@ -51,7 +51,7 @@ Package the completed backend so another developer can run, migrate, test, inspe
 
 ## Definition of Done
 
-- [x] A new developer can set up, migrate, run, test, and exercise the API from the README.
+- [x] A new developer can set up, migrate, run, test, and exercise the API from the README (see [docs/ACCEPTANCE_CRITERIA_DOCUMENTATION.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_DOCUMENTATION.md)).
 - [x] Required assignment deliverables and evidence are present and traceable.
 - [x] Submission documentation accurately states assumptions, limitations, security controls, and external-tool disclosure.
 

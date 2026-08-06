@@ -64,7 +64,7 @@ Asynchronously transform authorized uploaded files into tenant-scoped, provenanc
 
 ## Definition of Done
 
-- [x] Every supported successful upload can become an ordered, tenant-scoped chunk set with citation-relevant provenance.
+- [x] Every supported successful upload can become an ordered, tenant-scoped chunk set with citation-relevant provenance (see [docs/ACCEPTANCE_CRITERIA_DOCUMENT_PROCESSING.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_DOCUMENT_PROCESSING.md)).
 - [x] Failed parsing is visible through safe file status/error fields and can be retried or reprocessed without duplicate chunks.
 - [x] Chunk records are ready for Phase 13 embedding without exposing storage credentials or cross-tenant content.
 

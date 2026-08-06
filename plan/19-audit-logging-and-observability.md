@@ -60,7 +60,7 @@ Provide tenant-aware auditability and operational visibility for authentication,
 
 ## Definition of Done
 
-- [x] All critical lifecycle actions produce structured, tenant-safe audit events.
+- [x] All critical lifecycle actions produce structured, tenant-safe audit events (see [docs/ACCEPTANCE_CRITERIA_RELIABILITY.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_RELIABILITY.md)).
 - [x] Metrics, traces, and dashboards have planned ownership and redaction safeguards.
 - [x] Errors are observable to operators without exposing secrets to users or logs.
 

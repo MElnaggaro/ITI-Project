@@ -70,7 +70,7 @@ Establish tenant-scoped roles, direct-user grants, table/column permissions, mas
 
 ## Definition of Done
 
-- [x] Roles, memberships, direct grants, role grants, column grants, and masks have one documented fail-closed interpretation.
+- [x] Roles, memberships, direct grants, role grants, column grants, and masks have one documented fail-closed interpretation (see [docs/ACCEPTANCE_CRITERIA_PERMISSIONS.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_PERMISSIONS.md)).
 - [x] Non-PDF permission-management routes are clearly labeled baseline assumptions and do not change the required Section 8 contract.
 - [x] Every saved permission target is tenant-consistent and every row filter is constrained policy data rather than executable SQL.
 - [x] Later phases can resolve deterministic effective permissions without relying on tenant-admin bypass or LLM decisions.

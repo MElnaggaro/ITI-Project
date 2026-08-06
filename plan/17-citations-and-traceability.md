@@ -61,7 +61,7 @@ Make every grounded answer traceable to authorized document chunks and/or a cont
 
 ## Definition of Done
 
-- [x] Every grounded answer can be traced to a persisted document chunk and/or query execution.
+- [x] Every grounded answer can be traced to a persisted document chunk and/or query execution (see [docs/ACCEPTANCE_CRITERIA_TRACEABILITY.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_TRACEABILITY.md)).
 - [x] Citation response shapes match the Section 9 source-specific contract.
 - [x] Citation and SQL lookup endpoints are tenant-isolated and redact sensitive internals.
 

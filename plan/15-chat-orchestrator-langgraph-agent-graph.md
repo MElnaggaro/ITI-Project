@@ -62,7 +62,7 @@ Define the single LangGraph orchestration graph that turns an authenticated chat
 ## Definition of Done
 
 - [x] One reusable graph coordinates all supported intents.
-- [x] Hybrid requests combine only approved database and document outputs.
+- [x] Hybrid requests combine only approved database and document outputs (see [docs/ACCEPTANCE_CRITERIA_HYBRID_ANSWERS.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_HYBRID_ANSWERS.md)).
 - [x] Every graph path yields a persistable response or a safe error/clarification result.
 - [x] No graph path grants the LLM control of authorization or mandatory SQL filters.
 
