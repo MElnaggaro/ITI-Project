@@ -75,9 +75,10 @@
     filesTableBody: document.getElementById('files-table-body'),
     btnRefreshFiles: document.getElementById('btn-refresh-files'),
 
-    // Observability
+    // Observability & Status
     executionsTableBody: document.getElementById('executions-table-body'),
     healthBadge: document.getElementById('health-badge'),
+    chatModelStatus: document.getElementById('chat-model-status'),
   };
 
   /* ═══════════════════════════════════════════════════════════════════ */
@@ -859,15 +860,29 @@
   async function checkSystemHealth() {
     try {
       const health = await apiRequest('/health/ready');
+      const modelName = health.llm_model || 'qwen3.5:4b';
+      
       elements.healthBadge.className = 'health-indicator online';
       elements.healthBadge.innerHTML = `
         <span class="pulse-dot green"></span>
         <span class="health-text">ONLINE • Connected</span>`;
+
+      if (elements.chatModelStatus) {
+        elements.chatModelStatus.className = 'status-badge green';
+        elements.chatModelStatus.innerHTML = `<i data-lucide="cpu"></i> Model: ${escapeHtml(modelName)} (Online)`;
+        if (window.lucide) lucide.createIcons();
+      }
     } catch (err) {
       elements.healthBadge.className = 'health-indicator offline';
       elements.healthBadge.innerHTML = `
         <span class="pulse-dot red"></span>
         <span class="health-text">OFFLINE • Disconnected</span>`;
+
+      if (elements.chatModelStatus) {
+        elements.chatModelStatus.className = 'status-badge red';
+        elements.chatModelStatus.innerHTML = `<i data-lucide="alert-triangle"></i> Model: Offline`;
+        if (window.lucide) lucide.createIcons();
+      }
     }
   }
 

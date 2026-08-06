@@ -46,4 +46,6 @@ async def readiness(
             "dependencies": "deferred_to_owning_phases",
         },
         "environment": settings.app_environment,
+        "llm_model": settings.llm_model or "qwen3.5:4b",
+        "llm_provider": settings.llm_provider,
     }
