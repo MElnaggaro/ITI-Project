@@ -12,8 +12,8 @@ class ChunkingService:
     def split_text_into_chunks(
         self,
         text_content: str,
-        chunk_size: int = 500,
-        chunk_overlap: int = 50,
+        chunk_size: int = 200,
+        chunk_overlap: int = 30,
     ) -> list[dict[str, Any]]:
         """Split text into ordered chunk objects with chunk_index and content_hash."""
         words = text_content.split()

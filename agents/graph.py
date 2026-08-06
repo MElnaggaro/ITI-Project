@@ -73,7 +73,7 @@ class ChatOrchestrator:
 
         doc_context = None
         if state.retrieved_evidence:
-            doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:300]}" for e in state.retrieved_evidence[:3]])
+            doc_context = "\n".join([f"[{e.file_name} p.{e.page_number or 1}]: {e.excerpt[:500]}" for e in state.retrieved_evidence[:5]])
 
         # Try Ollama (qwen3.5:4b) Answer Synthesis if available
         try:
