@@ -12,7 +12,7 @@ class EvidenceReRankerService:
         self,
         query: str,
         candidates: list[RetrievedEvidence],
-        top_k: int = 5,
+        top_k: int = 10,
     ) -> list[RetrievedEvidence]:
         """Rerank candidates based on similarity score and lexical overlap relevance."""
         if not candidates:

@@ -105,13 +105,29 @@ class FileService:
         return FileResponse.model_validate(f_record)
 
     def delete_file(self, tenant_id: UUID, file_id: UUID) -> bool:
-        """Delete file metadata and storage object."""
+        """Delete file metadata, storage object, and vectors."""
         f_record = self.repo.get_by_id(tenant_id, file_id)
         if not f_record:
             return False
 
+        # 1. Delete vectors from Qdrant
+        try:
+            from services.vector_store_service import VectorStoreService
+            vs = VectorStoreService()
+            vs.delete_file_vectors(tenant_id, file_id)
+        except Exception as e:
+            # Continue deletion even if vector store fails
+            print(f"Failed to delete vectors for {file_id}: {e}")
+
+        # 2. Delete file from local storage
         self.storage.delete_file(f_record.storage_path)
-        return self.repo.delete(tenant_id, file_id)
+        
+        # 3. Delete from DB repository
+        result = self.repo.delete(tenant_id, file_id)
+        
+        # 4. Explicitly commit to fix the UI refresh bug
+        self.session.commit()
+        return result
 
     def reprocess_file(self, tenant_id: UUID, file_id: UUID) -> FileResponse:
         """Reset file processing status to pending."""
