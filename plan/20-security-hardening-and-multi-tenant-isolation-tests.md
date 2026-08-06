@@ -32,7 +32,7 @@ Prove the platform enforces tenant, role, table, column, row, document, and SQL 
 - [x] Test document file types, parser failures, reprocessing, deletion, and citations do not leak content or metadata across tenant/knowledge-base boundaries.
 - [x] Test general, database, document, hybrid, and streaming responses redact internal errors, credentials, excluded schema, raw restricted rows, and hidden chunks.
 - [x] Test audit logs, metrics labels, traces, query previews, and exception responses do not persist or expose forbidden business data or secrets.
-- [x] Record each security test's assignment control and acceptance criterion in a traceability table for submission evidence (see [docs/ACCEPTANCE_CRITERIA_MULTI_TENANCY.md](file:///d:/PROJECTS/ITI%20Project/docs/ACCEPTANCE_CRITERIA_MULTI_TENANCY.md)).
+- [x] Record each security test's assignment control and acceptance criterion in a traceability table for submission evidence (see [docs/SECURITY_ACCEPTANCE_CRITERIA.md](file:///d:/PROJECTS/ITI%20Project/docs/SECURITY_ACCEPTANCE_CRITERIA.md)).
 
 ## Data Model Touched
 
