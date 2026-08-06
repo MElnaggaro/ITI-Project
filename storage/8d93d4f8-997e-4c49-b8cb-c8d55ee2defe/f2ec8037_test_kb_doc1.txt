@@ -1,6 +1,0 @@
-This is a sample document about our Platform Specifications and Requirements.
-The platform requires a PostgreSQL database to store tenant data.
-Connections should be encrypted using strong AES-256 encryption.
-We support multi-tenancy by isolating data at the schema or row level depending on the plan.
-All users must have a valid email address and strong password.
-Role-Based Access Control (RBAC) ensures users only see data they are permitted to view.

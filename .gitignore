@@ -16,6 +16,10 @@ coverage.xml
 htmlcov/
 .venv/
 venv/
+backend/.venv/
+backend/venv/
+backend/__pycache__/
+backend/storage/
 
 # Build/runtime artifacts
 dist/

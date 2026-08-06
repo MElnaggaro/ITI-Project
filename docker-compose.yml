@@ -3,11 +3,11 @@ name: text-to-sql-platform
 services:
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file:
-      - path: .env
+      - path: ./backend/.env
         required: false
     environment:
       PLATFORM_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-platform_db}
@@ -25,7 +25,8 @@ services:
       minio:
         condition: service_healthy
     volumes:
-      - .:/app
+      - ./backend:/app
+      - ./frontend:/app/frontend:ro
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     healthcheck:
@@ -38,13 +39,13 @@ services:
 
   worker:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     command: ["celery", "-A", "workers.celery_app:celery_app", "worker", "--loglevel=INFO", "--hostname=worker@%h"]
     volumes:
-      - .:/app
+      - ./backend:/app
     env_file:
-      - path: .env
+      - path: ./backend/.env
         required: false
     environment:
       PLATFORM_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-platform_db}
