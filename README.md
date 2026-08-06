@@ -19,7 +19,8 @@
 
 ## 📖 Table of Contents
 - [Executive Overview](#-executive-overview)
-- [Security Acceptance Criteria & Multi-Tenant Specs](file:///d:/PROJECTS/ITI%20Project/docs/SECURITY_ACCEPTANCE_CRITERIA.md)
+- [Live Demo Screenshots](#-live-demo-screenshots)
+- [Security Acceptance Criteria & Multi-Tenant Specs](docs/SECURITY_ACCEPTANCE_CRITERIA.md)
 - [Key Features](#-key-features)
 - [Tech Stack](#-tech-stack)
 - [System Architecture](#-system-architecture)
@@ -47,9 +48,55 @@ Modern enterprises face two critical bottlenecks when attempting to leverage Lar
 ### The Solution
 This platform delivers a **secure, bounded, multi-tenant enterprise orchestration framework** that:
 - Introspects live database catalogs (**PostgreSQL**, **MySQL**, **SQL Server**, **Oracle**) dynamically.
-- Enforces strict read-only AST query parsing (**SQLGlot**) with row-level security injection (`tenant_id` & `user_id` AST gates). See detailed specs in [SECURITY_ACCEPTANCE_CRITERIA.md](file:///d:/PROJECTS/ITI%20Project/docs/SECURITY_ACCEPTANCE_CRITERIA.md).
+- Enforces strict read-only AST query parsing (**SQLGlot**) with row-level security injection (`tenant_id` & `user_id` AST gates). See detailed specs in [SECURITY_ACCEPTANCE_CRITERIA.md](docs/SECURITY_ACCEPTANCE_CRITERIA.md).
 - Parses, chunks, and indexes multi-format documents (PDF, Word, Excel, CSV, Text) into a 1024-dimension vector store (**Qdrant**).
 - Routes user questions through a **LangGraph State Graph** to generate verified SQL, execute bounded queries, retrieve document evidence, or merge both into a unified hybrid response delivered via Server-Sent Events (SSE).
+
+---
+
+## 🖥️ Live Demo Screenshots
+
+The following screenshots demonstrate the platform's three core AI orchestration modes running live against real databases and indexed knowledge documents.
+
+### 1. Text-to-SQL Query (Database Agent)
+
+> **Question:** *"How many customers are from Egypt?"*
+>
+> The LangGraph orchestrator classifies the intent as `DATABASE`, generates a safe SQL query via the LLM, validates it through the **SQLGlot AST Safety Engine**, executes it against the live **E-Commerce Sales DB** (PostgreSQL), and returns the verified result.
+
+<p align="center">
+  <img src="docs/screenshots/demo_sql_query.png" alt="Text-to-SQL Query Result" width="100%" />
+</p>
+
+> **Verified Result:** `SELECT COUNT(*) FROM customers WHERE country ILIKE 'Egypt' LIMIT 1000` → **3 customers** (Ahmed Hassan — Cairo, Sara Mohamed — Alexandria, Nour Ibrahim — Giza). The generated SQL was validated by SQLGlot and executed in read-only mode with row-limit clamping.
+
+---
+
+### 2. Document RAG Query (Knowledge Base Agent)
+
+> **Question:** *"What is the company's remote work policy?"*
+>
+> The orchestrator classifies the intent as `DOCUMENT`, performs a vector similarity search across the **Platform Specifications & Requirements** knowledge base (Qdrant, 1024-dim embeddings), retrieves relevant document chunks, and synthesizes a structured answer with verified citations.
+
+<p align="center">
+  <img src="docs/screenshots/demo_document_rag.png" alt="Document RAG Query Result" width="100%" />
+</p>
+
+> **Verified Result:** The system correctly extracted from the **Employee Handbook & Leave Policy** that TechNova is a *remote-first company*, employees may work from anywhere, and must maintain at least **4 hours of overlap** with core business hours (**9 AM – 5 PM EST**). Six document citations were returned with full provenance.
+
+---
+
+### 3. Hybrid Query (Database + Document Merger)
+
+> **Question:** *"What are the core guidelines described in the documents? How many active records exist in the database and how do they compare with these guidelines?"*
+>
+> The orchestrator classifies the intent as `HYBRID`, simultaneously queries the **Corporate HR DB** for live employee records and searches the knowledge base for corporate guidelines, then merges both data sources into a unified analytical response.
+
+<p align="center">
+  <img src="docs/screenshots/demo_hybrid_query.png" alt="Hybrid Query Result" width="100%" />
+</p>
+
+> **Verified Result:** The system synthesized **IT Security & Data Privacy** guidelines (MFA requirements, AES-256 encryption, incident response protocols), **Database Architecture** standards (PostgreSQL Primary-Replica, PgBouncer pooling), and **SDLC** policies from the knowledge base, then cross-referenced them against **5 active employee records** from the HR database to produce a compliance assessment table.
 
 ---
 
@@ -57,7 +104,7 @@ This platform delivers a **secure, bounded, multi-tenant enterprise orchestratio
 
 | Feature Category | Highlights |
 |---|---|
-| 🔐 **Multi-Tenant Isolation** | Data isolation at repository, database, vector-store (`tenant_id` payload filters), and object storage levels. Token rotation with PyJWT & Argon2id hashing. Details: [SECURITY_ACCEPTANCE_CRITERIA.md](file:///d:/PROJECTS/ITI%20Project/docs/SECURITY_ACCEPTANCE_CRITERIA.md). |
+| 🔐 **Multi-Tenant Isolation** | Data isolation at repository, database, vector-store (`tenant_id` payload filters), and object storage levels. Token rotation with PyJWT & Argon2id hashing. Details: [SECURITY_ACCEPTANCE_CRITERIA.md](docs/SECURITY_ACCEPTANCE_CRITERIA.md). |
 | 🛡️ **SQLGlot AST Safety Layer** | Dialect-aware AST validation enforcing read-only `SELECT` queries, rejecting DDL/DML/comments/procedures, clamping limits (max 100 rows), and enforcing strict statement timeouts. |
 | 🔑 **Fine-Grained Access Control (FGAC)** | Table/column permission grants with direct-user grant precedence over role grants, column projection/filter gates, and sensitivity masking (`redact`, `last4`, `hash`). |
 | 🧠 **LangGraph Unified Agent Graph** | State-driven workflow routing user queries across Intent Classifier, Source Selector, Database Agent, Document RAG Agent, and Hybrid Merger nodes. |
@@ -123,7 +170,7 @@ This platform delivers a **secure, bounded, multi-tenant enterprise orchestratio
                                   +-------------------+-------------------+
 ```
 
-*Full system architecture documentation is available in [ARCHITECTURE.md](file:///d:/PROJECTS/ITI%20Project/ARCHITECTURE.md).*
+*Full system architecture documentation is available in [ARCHITECTURE.md](ARCHITECTURE.md).*
 
 ### Architectural Highlights & Component Breakdown
 
@@ -371,34 +418,139 @@ docker-compose down
 
 ---
 
-## 📡 API Documentation
+## 📡 API Documentation & Interactive OpenAPI Specs
 
-### Interactive Docs
-When the API server is running, navigate to:
-- **Swagger UI**: `http://localhost:8000/docs`
-- **ReDoc**: `http://localhost:8000/redoc`
+The platform features a fully self-documenting RESTful API built with **FastAPI** and **OpenAPI 3.1.0**.
 
-### Section 8 Core Endpoints Summary
+### 🔗 Interactive Documentation Links
 
-| Method | Route | Description | Auth Required |
+- 🌐 **Swagger UI (Interactive Console)**: [http://127.0.0.1:8090/docs](http://127.0.0.1:8090/docs) *(or `http://localhost:8000/docs` in dev mode)*
+- 📖 **ReDoc Documentation**: [http://127.0.0.1:8090/redoc](http://127.0.0.1:8090/redoc)
+- 📄 **Raw OpenAPI JSON Spec**: [openapi.json](openapi.json)
+- 🧪 **Executable HTTP Request Collection**: [examples/requests.http](examples/requests.http)
+
+---
+
+---
+
+### 📷 Swagger UI Console Screenshots
+
+The interactive Swagger UI exposes all operational endpoints grouped logically by domain module. Below are high-resolution captures of the live OpenAPI console:
+
+#### 1. API Overview & Operational Health (`/api/health`)
+<p align="center">
+  <img src="docs/screenshots/swagger_overview.png" alt="Swagger Overview" width="100%" />
+</p>
+
+#### 2. Authentication & Role-Based Access Control (`/api/auth`, `/api/roles`)
+<p align="center">
+  <img src="docs/screenshots/swagger_auth_roles.png" alt="Swagger Auth and Roles" width="100%" />
+</p>
+
+#### 3. User Management & Database Connections (`/api/users`, `/api/database-connections`)
+<p align="center">
+  <img src="docs/screenshots/swagger_users_db.png" alt="Swagger Users and DB Connections" width="100%" />
+</p>
+
+#### 4. Database Schema Discovery & Document File Processing (`/api/database-schema`, `/api/files`)
+<p align="center">
+  <img src="docs/screenshots/swagger_schema_files.png" alt="Swagger Schema and Files" width="100%" />
+</p>
+
+#### 5. Knowledge Bases & Chat Sessions (`/api/knowledge-bases`, `/api/conversations`)
+<p align="center">
+  <img src="docs/screenshots/swagger_kb_conversations.png" alt="Swagger KB and Conversations" width="100%" />
+</p>
+
+#### 6. Streaming Chat Orchestrator & Execution Traces (`/api/chat`, `/api/messages`)
+<p align="center">
+  <img src="docs/screenshots/swagger_traceability_chat.png" alt="Swagger Chat and Traceability" width="100%" />
+</p>
+
+#### 7. Fine-Grained Permissions & Data Models (`/api/permissions`)
+<p align="center">
+  <img src="docs/screenshots/swagger_permissions.png" alt="Swagger Permissions" width="100%" />
+</p>
+
+---
+
+### 📋 Complete Required API Endpoints Specification
+
+Below is the complete breakdown of required API endpoints implemented across Section 8 requirements, organized by functional module with links to source route handlers:
+
+#### 1. 🏥 Health Check & System Readiness
+Source Route Handler: [health.py](backend/api/routes/health.py)
+
+| Method | Endpoint | Description | Auth Required |
 |---|---|---|:---:|
-| `GET` | `/api/health` | Overall system liveness & readiness health check | ❌ |
-| `POST` | `/api/auth/login` | Authenticate user credentials and issue PyJWT token pair | ❌ |
-| `GET` | `/api/auth/me` | Fetch authenticated user profile & tenant context | ✅ |
-| `POST` | `/api/database-connections` | Register encrypted tenant database connection | ✅ |
-| `POST` | `/api/database-connections/{id}/test` | Execute read-only connectivity probe (`SELECT 1`) | ✅ |
-| `POST` | `/api/database-connections/{id}/sync-schema` | Introspect live catalog and update schema cache | ✅ |
-| `POST` | `/api/files/upload` | Upload document file (PDF, Word, Excel, CSV, Text) | ✅ |
-| `GET` | `/api/files` | List tenant uploaded files and processing statuses | ✅ |
-| `DELETE` | `/api/files/{id}` | Delete file metadata, object storage, and vector index | ✅ |
-| `POST` | `/api/knowledge-bases` | Create new tenant knowledge base container | ✅ |
-| `POST` | `/api/conversations` | Create a new chat session | ✅ |
-| `POST` | `/api/chat` | Synchronous chat orchestrator pipeline | ✅ |
-| `POST` | `/api/chat/stream` | Streaming SSE endpoint emitting structured event sequence | ✅ |
-| `GET` | `/api/messages/{id}/citations` | Fetch persistent document & SQL citations for a message | ✅ |
-| `GET` | `/api/messages/{id}/sql` | Fetch sanitized SQL execution trace & result envelope | ✅ |
+| `GET` | `/api/health` | Overall system liveness & database/Redis/Qdrant readiness health check | ❌ |
+| `GET` | `/api/health/live` | Container process liveness probe | ❌ |
+| `GET` | `/api/health/ready` | Foundation services readiness check | ❌ |
 
-*Executable cURL and HTTP request examples are available in [examples/requests.http](file:///d:/PROJECTS/ITI%20Project/examples/requests.http).*
+#### 2. 🔑 Authentication & Identity Management
+Source Route Handler: [auth.py](backend/api/routes/auth.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `POST` | `/api/auth/login` | Authenticate tenant user credentials & issue PyJWT token pair | ❌ |
+| `POST` | `/api/auth/refresh` | Refresh expired access token using valid refresh token | ❌ |
+| `GET` | `/api/auth/me` | Retrieve authenticated user profile, roles & tenant context | ✅ |
+
+#### 3. 🛡️ Role-Based & Fine-Grained Access Control (RBAC & FGAC)
+Source Route Handlers: [roles.py](backend/api/routes/roles.py) • [users.py](backend/api/routes/users.py) • [permissions.py](backend/api/routes/permissions.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/api/roles` | List tenant roles | ✅ |
+| `POST` | `/api/roles` | Create new tenant role | ✅ |
+| `PUT` | `/api/roles/{role_id}` | Update existing role permissions | ✅ |
+| `DELETE` | `/api/roles/{role_id}` | Delete tenant role | ✅ |
+| `PUT` | `/api/users/{user_id}/roles` | Assign/replace user roles | ✅ |
+| `GET` | `/api/permissions/table` | List fine-grained table access control grants | ✅ |
+| `POST` | `/api/permissions/table` | Create table access control rule (row filter injection) | ✅ |
+
+#### 4. 🗄️ Database Connections & Schema Introspection
+Source Route Handlers: [database_connections.py](backend/api/routes/database_connections.py) • [database_schema.py](backend/api/routes/database_schema.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/api/database-connections` | List tenant registered database connections | ✅ |
+| `POST` | `/api/database-connections` | Register new encrypted database connection (Fernet key) | ✅ |
+| `GET` | `/api/database-connections/{id}` | Get connection details and status | ✅ |
+| `PUT` | `/api/database-connections/{id}` | Update connection credentials / configuration | ✅ |
+| `DELETE` | `/api/database-connections/{id}` | Delete registered database connection | ✅ |
+| `POST` | `/api/database-connections/{id}/test` | Execute read-only connectivity probe (`SELECT 1`) | ✅ |
+| `POST` | `/api/database-connections/{id}/sync-schema` | Introspect live database catalog & sync metadata cache | ✅ |
+| `GET` | `/api/database-schema/connections/{id}/tables` | Retrieve introspected database schema tree | ✅ |
+
+#### 5. 📄 Document Ingestion & Knowledge Base Management
+Source Route Handlers: [files.py](backend/api/routes/files.py) • [knowledge_bases.py](backend/api/routes/knowledge_bases.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/api/knowledge-bases` | List tenant knowledge base containers | ✅ |
+| `POST` | `/api/knowledge-bases` | Create new knowledge base for document retrieval | ✅ |
+| `POST` | `/api/files/upload` | Upload document file (PDF, Word, Excel, CSV, Text) | ✅ |
+| `GET` | `/api/files` | List tenant uploaded files & processing statuses | ✅ |
+| `DELETE` | `/api/files/{id}` | Delete file metadata, object storage file & vector embeddings | ✅ |
+
+#### 6. 💬 Chat Sessions & AI Orchestrator Pipeline
+Source Route Handlers: [conversations.py](backend/api/routes/conversations.py) • [chat.py](backend/api/routes/chat.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `POST` | `/api/conversations` | Create a new isolated chat conversation session | ✅ |
+| `GET` | `/api/conversations` | List user conversation history | ✅ |
+| `POST` | `/api/chat` | Synchronous chat orchestrator pipeline execution | ✅ |
+| `POST` | `/api/chat/stream` | **Streaming SSE endpoint** emitting real-time agent events (`intent`, `answer`, `done`) | ✅ |
+
+#### 7. 🔍 Citations, Audit & Query Execution Traceability
+Source Route Handler: [messages.py](backend/api/routes/messages.py)
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/api/messages/{id}/citations` | Retrieve persistent document chunks & SQL query citations | ✅ |
+| `GET` | `/api/messages/{id}/sql` | Retrieve sanitized SQL execution trace, AST status & row results | ✅ |
 
 ---
 
