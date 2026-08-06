@@ -72,7 +72,7 @@ class DocumentRetrievalService:
                 tenant_id=context.tenant_id,
                 knowledge_base_id=kb.id,
                 query_vector=query_vector,
-                top_k=top_k * 2,
+                top_k=top_k * 10,
             )
 
             for res in raw_results:

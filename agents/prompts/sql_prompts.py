@@ -25,12 +25,12 @@ User Question: {user_message}
 """
 
 ROUTER_SYSTEM_PROMPT = """You are a smart database connection router.
-You will be given a user question and a list of available database connections, each with its ID, name, and a summary of its tables.
-Your job is to select the SINGLE most relevant database connection that can answer the user's question.
+You will be given a user question and a list of available database connections, each labeled as Option 1, Option 2, etc.
+Your job is to select the SINGLE most relevant database connection that can answer the user's question based on its tables.
 
 STRICT RULES:
-1. Output ONLY the raw UUID of the selected connection.
-2. No markdown, no explanations, no prefix. JUST the UUID string.
+1. Output ONLY the Option number of the selected connection (e.g. 1 or 2).
+2. No markdown, no explanations, no prefix. JUST the integer number.
 """
 
 ROUTER_USER_PROMPT_TEMPLATE = """Available Databases:
@@ -38,4 +38,4 @@ ROUTER_USER_PROMPT_TEMPLATE = """Available Databases:
 
 User Question: {user_message}
 
-Which database connection is the best fit? (Respond with the UUID only)"""
+Which database connection is the best fit? (Respond with the Option number ONLY)"""

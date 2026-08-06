@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     llm_api_key: SecretStr | None = None
     llm_base_url: str | None = None
-    llm_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    llm_timeout_seconds: int = Field(default=300, ge=1, le=600)
     embedding_provider: str = "unconfigured"
     embedding_model: str | None = None
     embedding_api_key: SecretStr | None = None

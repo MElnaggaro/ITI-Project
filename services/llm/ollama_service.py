@@ -22,7 +22,7 @@ class OllamaLLMService:
         self.provider = settings.llm_provider
         self.model_name = settings.llm_model or "qwen3.5:4b"
         self.base_url = settings.llm_base_url or "http://host.docker.internal:11434"
-        self.timeout = settings.llm_timeout_seconds or 60
+        self.timeout = settings.llm_timeout_seconds
 
     def is_enabled(self) -> bool:
         return self.provider == "ollama"

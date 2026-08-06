@@ -24,10 +24,13 @@ class ConnectionRouterService:
         self.db = db_session
         self.llm_service = OllamaLLMService()
 
-    def _build_connections_context(self, connections: list[DatabaseConnection]) -> str:
-        """Format the connections and their prominent tables for the LLM."""
+    def _build_connections_context(self, connections: list[DatabaseConnection]) -> tuple[str, dict[str, UUID]]:
+        """Format the connections and their prominent tables for the LLM. Returns string context and mapping."""
         lines = []
-        for conn in connections:
+        mapping = {}
+        for i, conn in enumerate(connections, start=1):
+            option_id = str(i)
+            mapping[option_id] = conn.id
             tables = list(
                 self.db.scalars(
                     select(DatabaseTable.table_name)
@@ -37,9 +40,9 @@ class ConnectionRouterService:
                 ).all()
             )
             tables_str = ", ".join(tables) if tables else "No tables or un-synced"
-            lines.append(f"- ID: {conn.id} | Name: {conn.name} | Tables: {tables_str}")
+            lines.append(f"Option {option_id}: Name: {conn.name} | Tables: {tables_str}")
             
-        return "\n".join(lines)
+        return "\n".join(lines), mapping
 
     def select_best_connection(self, user_message: str, connection_ids: list[UUID]) -> UUID | None:
         """Select the best connection UUID based on the user's message."""
@@ -59,7 +62,7 @@ class ConnectionRouterService:
         if not connections:
             return connection_ids[0]
 
-        connections_context = self._build_connections_context(connections)
+        connections_context, mapping = self._build_connections_context(connections)
         user_prompt = ROUTER_USER_PROMPT_TEMPLATE.format(
             connections_context=connections_context,
             user_message=user_message,
@@ -71,19 +74,14 @@ class ConnectionRouterService:
                 system_prompt=ROUTER_SYSTEM_PROMPT
             )
             
-            # Extract UUID using regex just in case the LLM outputs extra text
-            uuid_pattern = re.compile(
-                r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 
-                re.IGNORECASE
-            )
-            match = uuid_pattern.search(raw_output)
+            # Extract Option integer using regex just in case the LLM outputs extra text
+            match = re.search(r'\b([1-9][0-9]*)\b', raw_output)
             if match:
-                selected_uuid = UUID(match.group(0))
-                # Verify it's in the allowed list
-                if selected_uuid in connection_ids:
-                    return selected_uuid
+                selected_option = match.group(1)
+                if selected_option in mapping:
+                    return mapping[selected_option]
                     
-            logger.warning(f"Router LLM returned invalid or unmatched UUID: '{raw_output}'. Defaulting to first.")
+            logger.warning(f"Router LLM returned invalid or unmatched Option: '{raw_output}'. Defaulting to first.")
             return connection_ids[0]
             
         except Exception as e:

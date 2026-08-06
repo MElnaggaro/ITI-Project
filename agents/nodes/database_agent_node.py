@@ -64,6 +64,12 @@ def database_agent_node(state: AgentState, db: Session) -> AgentState:
                     }
                 )
     except Exception as e:
-        state.error_message = f"Database Agent Error: {str(e)[:150]}"
+        error_str = str(e)
+        if state.detected_intent == "hybrid" and "LLM could not generate SQL" in error_str:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning("Gracefully ignoring SQL failure in Hybrid mode. Error: %s", error_str)
+        else:
+            state.error_message = f"Database Agent Error: {error_str[:150]}"
 
     return state
