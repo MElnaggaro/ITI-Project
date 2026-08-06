@@ -55,10 +55,7 @@
             <i data-lucide="folder-archive"></i>
             <span>Knowledge Base</span>
           </button>
-          <button class="nav-btn" data-tab="rbac-tab">
-            <i data-lucide="shield-check"></i>
-            <span>Permissions & RBAC</span>
-          </button>
+
           <button class="nav-btn" data-tab="observability-tab">
             <i data-lucide="activity"></i>
             <span>Observability</span>
@@ -334,46 +331,7 @@
         </div>
       </section>
 
-      <!-- ============================================================ -->
-      <!-- TAB 4: PERMISSIONS & RBAC MATRIX                             -->
-      <!-- ============================================================ -->
-      <section id="rbac-tab" class="tab-panel">
-        <div class="panel-header glass-panel">
-          <div>
-            <h2><i data-lucide="shield-check"></i> Security & Permission Controls</h2>
-            <p class="subtitle">Manage Roles, Table-Level Permissions, Column-Level Data Masking, and Row-Level Filters.</p>
-          </div>
-          <button class="btn-primary" id="btn-open-add-role">
-            <i data-lucide="user-plus"></i> Create Role
-          </button>
-        </div>
 
-        <div class="grid-2-col mt-4">
-          <!-- Roles & Permissions Matrix -->
-          <div class="glass-panel">
-            <div class="card-header">
-              <h3>Tenant Roles</h3>
-              <span class="badge purple" id="roles-count">0 Roles</span>
-            </div>
-            <div class="roles-list" id="roles-list-container">
-              <!-- Roles render here -->
-            </div>
-          </div>
-
-          <!-- Table & Column Permission Rules Configurator -->
-          <div class="glass-panel">
-            <div class="card-header">
-              <h3>Table & Column Security Rules</h3>
-            </div>
-            <div id="rbac-rules-container">
-              <div class="empty-state">
-                <i data-lucide="lock"></i>
-                <p>Configure granular table permissions and data masking policies for role enforcement.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- ============================================================ -->
       <!-- TAB 5: OBSERVABILITY & AUDIT LOGS                             -->

@@ -13,7 +13,6 @@
     connections: [],
     knowledgeBases: [],
     files: [],
-    roles: [],
     activeConnectionId: null,
     activeKbId: null,
     conversationId: null,
@@ -75,11 +74,6 @@
     btnUploadSubmit: document.getElementById('btn-upload-submit'),
     filesTableBody: document.getElementById('files-table-body'),
     btnRefreshFiles: document.getElementById('btn-refresh-files'),
-
-    // RBAC
-    btnOpenAddRole: document.getElementById('btn-open-add-role'),
-    rolesListContainer: document.getElementById('roles-list-container'),
-    rolesCountBadge: document.getElementById('roles-count'),
 
     // Observability
     executionsTableBody: document.getElementById('executions-table-body'),
@@ -223,7 +217,6 @@
       loadConnections(),
       loadKnowledgeBases(),
       loadFiles(),
-      loadRoles(),
       checkSystemHealth(),
     ]);
   }
@@ -591,45 +584,6 @@
     }
   }
 
-  /* ═══════════════════════════════════════════════════════════════════ */
-  /* ROLES & PERMISSIONS (RBAC)                                          */
-  /* ═══════════════════════════════════════════════════════════════════ */
-  async function loadRoles() {
-    try {
-      const roles = await apiRequest('/roles');
-      state.roles = roles || [];
-      renderRolesList();
-    } catch (err) {
-      console.error('Error loading roles:', err);
-    }
-  }
-
-  function renderRolesList() {
-    elements.rolesCountBadge.textContent = `${state.roles.length} Roles`;
-    if (!state.roles.length) {
-      elements.rolesListContainer.innerHTML = `
-        <div class="empty-state">
-          <i data-lucide="shield"></i>
-          <p>No custom roles created. Default Admin role active.</p>
-        </div>`;
-      if (window.lucide) lucide.createIcons();
-      return;
-    }
-
-    elements.rolesListContainer.innerHTML = state.roles
-      .map(
-        (role) => `
-      <div class="glass-card p-3 mb-2 flex-between">
-        <div>
-          <strong style="font-size:0.95rem;">${escapeHtml(role.name)}</strong>
-          <p class="text-muted text-sm">${escapeHtml(role.description || 'Tenant Role')}</p>
-        </div>
-        <span class="badge purple">Enforced</span>
-      </div>
-    `
-      )
-      .join('');
-  }
 
   /* ═══════════════════════════════════════════════════════════════════ */
   /* AI CHAT ORCHESTRATOR & STREAMING                                    */
