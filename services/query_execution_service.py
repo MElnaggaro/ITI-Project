@@ -120,14 +120,17 @@ class QueryExecutionService:
 
         latency_ms = int((time.perf_counter() - start_time) * 1000)
 
-        from datetime import datetime as PyDatetime
+        from datetime import datetime as PyDatetime, date as PyDate
+        from decimal import Decimal
         def _json_safe(obj: Any) -> Any:
             if isinstance(obj, dict):
                 return {k: _json_safe(v) for k, v in obj.items()}
             elif isinstance(obj, list):
                 return [_json_safe(i) for i in obj]
-            elif isinstance(obj, (UUID, PyDatetime)):
+            elif isinstance(obj, (UUID, PyDatetime, PyDate)):
                 return str(obj)
+            elif isinstance(obj, Decimal):
+                return float(obj)
             return obj
 
         # Sanitized result preview (first 5 rows max)
