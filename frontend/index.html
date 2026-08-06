@@ -148,14 +148,14 @@
             <div class="quick-prompts-section">
               <label class="input-label"><i data-lucide="sparkles"></i> Demo Quick Prompts</label>
               <div class="prompt-chips">
-                <button class="prompt-chip" data-prompt="Show me the top 3 most expensive products with their prices and brands.">
-                  <i data-lucide="database"></i> Text-to-SQL Sales Query
+                <button class="prompt-chip" data-prompt="1. What is the total count of records in the database? 2. Show me the top 3 highest value items with their details.">
+                  <i data-lucide="database"></i> Text-to-SQL (Multi-Query)
                 </button>
-                <button class="prompt-chip" data-prompt="What is the company vacation (PTO) policy and how many days can be rolled over?">
-                  <i data-lucide="file-text"></i> Document RAG Policy Query
+                <button class="prompt-chip" data-prompt="1. What are the main rules and policies stated in the documents? 2. What are the specific requirements, limits, or deadlines mentioned?">
+                  <i data-lucide="file-text"></i> Document RAG (Multi-Query)
                 </button>
-                <button class="prompt-chip" data-prompt="What is the company's PTO policy, and how many leave requests are currently pending in the database?">
-                  <i data-lucide="git-compare"></i> Hybrid Database & RAG Query
+                <button class="prompt-chip" data-prompt="1. What are the core guidelines described in the documents? 2. How many active records exist in the database and how do they compare with these guidelines?">
+                  <i data-lucide="git-compare"></i> Hybrid Search (Multi-Query)
                 </button>
               </div>
             </div>
@@ -574,7 +574,7 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Main JavaScript App -->
-  <script src="/js/app.js?v=4.0"></script>
+  <script src="/js/app.js?v=4.2"></script>
 
   <script>
     // Initialize Lucide Icons
