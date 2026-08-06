@@ -9,15 +9,42 @@ from schemas.resolved_schema import ResolvedColumn, ResolvedSchema, ResolvedTabl
 from services.sql_generator_service import SQLGeneratorService
 
 
-def test_sql_generator_prompt_formatting():
+def test_sql_generator_prompt_formatting(monkeypatch: pytest.MonkeyPatch):
     """Verify prompt context contains only permitted tables and columns."""
+    from services.llm.ollama_service import OllamaLLMService
+
+    monkeypatch.setattr(OllamaLLMService, "is_enabled", lambda self: True)
+    monkeypatch.setattr(
+        OllamaLLMService,
+        "generate_sql",
+        lambda self, ctx, prompt: "SELECT id, email FROM public.users",
+    )
+
     tenant_id = uuid4()
     user_id = uuid4()
     conn_id = uuid4()
     context = TenantContext(tenant_id=tenant_id, user_id=user_id)
 
-    col1 = ResolvedColumn(column_id=uuid4(), column_name="id", data_type="uuid", is_primary_key=True, is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=True)
-    col2 = ResolvedColumn(column_id=uuid4(), column_name="email", data_type="varchar", is_primary_key=False, is_foreign_key=False, can_read=True, can_filter=True, can_aggregate=False)
+    col1 = ResolvedColumn(
+        column_id=uuid4(),
+        column_name="id",
+        data_type="uuid",
+        is_primary_key=True,
+        is_foreign_key=False,
+        can_read=True,
+        can_filter=True,
+        can_aggregate=True,
+    )
+    col2 = ResolvedColumn(
+        column_id=uuid4(),
+        column_name="email",
+        data_type="varchar",
+        is_primary_key=False,
+        is_foreign_key=False,
+        can_read=True,
+        can_filter=True,
+        can_aggregate=False,
+    )
 
     tbl = ResolvedTable(
         table_id=uuid4(),

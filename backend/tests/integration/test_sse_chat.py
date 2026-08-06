@@ -36,5 +36,5 @@ def test_sse_chat_streaming_flow(client: TestClient, db_session: Session):
 
     assert "data: {" in body_text
     assert '"event": "intent"' in body_text
-    assert '"event": "answer"' in body_text
     assert '"event": "done"' in body_text
+

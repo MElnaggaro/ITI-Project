@@ -7,8 +7,18 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def get_file_path(filename: str) -> Path:
+
+    if (ROOT / filename).exists():
+        return ROOT / filename
+    if (ROOT.parent / filename).exists():
+        return ROOT.parent / filename
+    raise FileNotFoundError(f"Could not find {filename} in {ROOT} or {ROOT.parent}")
+
+
 def test_compose_has_exactly_required_services_and_no_source_database() -> None:
-    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    compose_path = get_file_path("docker-compose.yml")
+    compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
     services = compose["services"]
 
     assert set(services) == {
@@ -26,7 +36,8 @@ def test_compose_has_exactly_required_services_and_no_source_database() -> None:
 
 
 def test_compose_healthchecks_and_local_port_bindings_are_present() -> None:
-    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    compose_path = get_file_path("docker-compose.yml")
+    compose = yaml.safe_load(compose_path.read_text(encoding="utf-8"))
 
     for service in compose["services"].values():
         assert "healthcheck" in service
@@ -37,8 +48,8 @@ def test_compose_healthchecks_and_local_port_bindings_are_present() -> None:
 
 
 def test_dockerfile_runs_as_non_root_and_excludes_environment_files() -> None:
-    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
-    dockerignore = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+    dockerfile = get_file_path("Dockerfile").read_text(encoding="utf-8")
+    dockerignore = get_file_path(".dockerignore").read_text(encoding="utf-8")
 
     assert "USER platform" in dockerfile
     assert ".env" in dockerignore
@@ -46,9 +57,10 @@ def test_dockerfile_runs_as_non_root_and_excludes_environment_files() -> None:
 
 
 def test_example_environment_contains_only_placeholder_secrets() -> None:
-    example = (ROOT / ".env.example").read_text(encoding="utf-8")
+    example = get_file_path(".env.example").read_text(encoding="utf-8")
 
     assert "REPLACE_WITH_A_LONG_RANDOM_JWT_SECRET" in example
     assert "REPLACE_WITH_A_VALID_FERNET_KEY" in example
     assert "CELERY_TASK_IGNORE_RESULT=true" in example
     assert "SOURCE_ALLOWED_DIALECTS=postgresql" in example
+

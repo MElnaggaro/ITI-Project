@@ -31,6 +31,15 @@ def get_engine():
     return _engine
 
 
+
+def SessionLocal() -> Session:
+    """Create and return a standalone database session for background workers."""
+    get_engine()
+    assert _SessionFactory is not None
+    return _SessionFactory()
+
+
+
 def get_db() -> Generator[Session, None, None]:
     """Provide a database session for request lifecycle handling."""
     get_engine()

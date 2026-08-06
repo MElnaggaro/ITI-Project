@@ -17,7 +17,9 @@ def test_classifier_node():
         conversation_id=uuid4(),
         message_id=uuid4(),
         user_message="SELECT * FROM orders",
+        database_connection_ids=[uuid4()],
     )
+
     res_state = classifier_node(state)
     assert res_state.detected_intent == "database"
 

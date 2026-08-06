@@ -58,5 +58,6 @@ def test_required_phase01_paths_exist() -> None:
         "README.md",
     }
 
-    missing = sorted(path for path in expected_paths if not (ROOT / path).exists())
+    missing = sorted(path for path in expected_paths if not ((ROOT / path).exists() or (ROOT.parent / path).exists()))
     assert not missing, f"Missing required Phase 01 paths: {missing}"
+

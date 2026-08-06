@@ -66,8 +66,9 @@ class Settings(BaseSettings):
     jwt_refresh_token_days: int = Field(default=7, ge=1, le=90)
     encryption_key: SecretStr | None = Field(
         default=None,
-        validation_alias=AliasChoices("CONNECTION_ENCRYPTION_KEY", "ENCRYPTION_KEY"),
+        validation_alias=AliasChoices("CONNECTION_ENCRYPTION_KEY", "ENCRYPTION_KEY", "ENCRYPTION_MASTER_KEY"),
     )
+
 
     llm_provider: str = "unconfigured"
     llm_model: str | None = None

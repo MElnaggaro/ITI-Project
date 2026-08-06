@@ -1,0 +1,105 @@
+### Multi-Tenant Text-to-SQL & Document Chat Platform API Example Requests
+@host = http://localhost:8000
+@token = YOUR_JWT_ACCESS_TOKEN_HERE
+
+### 1. Health Probe
+GET {{host}}/api/health
+Accept: application/json
+
+### 2. Login & Authenticate
+# @name login
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "Password123!"
+}
+
+### 3. Get Authenticated User Profile
+GET {{host}}/api/auth/me
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### 4. Create Database Connection
+POST {{host}}/api/database-connections
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Production Postgres",
+  "database_type": "postgresql",
+  "host": "postgres",
+  "port": 5432,
+  "database_name": "platform_db",
+  "username": "postgres",
+  "password": "postgres",
+  "ssl_enabled": false
+}
+
+### 5. Test Database Connection
+POST {{host}}/api/database-connections/11111111-1111-1111-1111-111111111111/test
+Authorization: Bearer {{token}}
+
+### 6. Introspect & Sync Database Schema
+POST {{host}}/api/database-connections/11111111-1111-1111-1111-111111111111/sync-schema
+Authorization: Bearer {{token}}
+
+### 7. Upload Knowledge Document
+POST {{host}}/api/files/upload
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample_policy.txt"
+Content-Type: text/plain
+
+Company Remote Work Policy: Employees are entitled to 20 days of paid vacation annually.
+--WebAppBoundary--
+
+### 8. Create Knowledge Base
+POST {{host}}/api/knowledge-bases
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Company Policies",
+  "description": "HR and remote work guidelines"
+}
+
+### 9. Create Conversation Session
+POST {{host}}/api/conversations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "SQL Analytics Session"
+}
+
+### 10. Synchronous Chat Request (Database / RAG / Hybrid)
+POST {{host}}/api/chat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "message": "How many users are registered in the database?",
+  "conversation_id": null
+}
+
+### 11. Streaming SSE Chat Request
+POST {{host}}/api/chat/stream
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "message": "Summarize the PTO vacation policy",
+  "conversation_id": null
+}
+
+### 12. Get Message Citations
+GET {{host}}/api/messages/11111111-1111-1111-1111-111111111111/citations
+Authorization: Bearer {{token}}
+
+### 13. Get Message SQL Trace
+GET {{host}}/api/messages/11111111-1111-1111-1111-111111111111/sql
+Authorization: Bearer {{token}}

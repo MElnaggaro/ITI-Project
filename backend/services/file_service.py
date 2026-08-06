@@ -88,9 +88,20 @@ class FileService:
             checksum=checksum,
             processing_status="pending",
         )
-
         created = self.repo.create(file_record)
+
+        
+        # Dispatch asynchronous background document processing task via Celery
+        try:
+            from workers.tasks import process_document_task
+            process_document_task.delay(str(created.id), str(context.tenant_id))
+        except Exception as e:
+            # Celery fallback if broker is offline during local testing
+            print(f"Celery dispatch notice for {created.id}: {e}")
+
         return FileResponse.model_validate(created)
+
+
 
     def list_files(self, tenant_id: UUID) -> list[FileResponse]:
         """List all files for a tenant."""
