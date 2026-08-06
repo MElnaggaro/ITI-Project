@@ -20,7 +20,6 @@
 ## 📖 Table of Contents
 - [Executive Overview](#-executive-overview)
 - [Live Demo Screenshots](#-live-demo-screenshots)
-- [Security Acceptance Criteria & Multi-Tenant Specs](docs/SECURITY_ACCEPTANCE_CRITERIA.md)
 - [Key Features](#-key-features)
 - [Tech Stack](#-tech-stack)
 - [System Architecture](#-system-architecture)
@@ -48,7 +47,7 @@ Modern enterprises face two critical bottlenecks when attempting to leverage Lar
 ### The Solution
 This platform delivers a **secure, bounded, multi-tenant enterprise orchestration framework** that:
 - Introspects live database catalogs (**PostgreSQL**, **MySQL**, **SQL Server**, **Oracle**) dynamically.
-- Enforces strict read-only AST query parsing (**SQLGlot**) with row-level security injection (`tenant_id` & `user_id` AST gates). See detailed specs in [SECURITY_ACCEPTANCE_CRITERIA.md](docs/SECURITY_ACCEPTANCE_CRITERIA.md).
+- Enforces strict read-only AST query parsing (**SQLGlot**) with row-level security injection (`tenant_id` & `user_id` AST gates).
 - Parses, chunks, and indexes multi-format documents (PDF, Word, Excel, CSV, Text) into a 1024-dimension vector store (**Qdrant**).
 - Routes user questions through a **LangGraph State Graph** to generate verified SQL, execute bounded queries, retrieve document evidence, or merge both into a unified hybrid response delivered via Server-Sent Events (SSE).
 
@@ -104,7 +103,7 @@ The following screenshots demonstrate the platform's three core AI orchestration
 
 | Feature Category | Highlights |
 |---|---|
-| 🔐 **Multi-Tenant Isolation** | Data isolation at repository, database, vector-store (`tenant_id` payload filters), and object storage levels. Token rotation with PyJWT & Argon2id hashing. Details: [SECURITY_ACCEPTANCE_CRITERIA.md](docs/SECURITY_ACCEPTANCE_CRITERIA.md). |
+| 🔐 **Multi-Tenant Isolation** | Data isolation at repository, database, vector-store (`tenant_id` payload filters), and object storage levels. Token rotation with PyJWT & Argon2id hashing. |
 | 🛡️ **SQLGlot AST Safety Layer** | Dialect-aware AST validation enforcing read-only `SELECT` queries, rejecting DDL/DML/comments/procedures, clamping limits (max 100 rows), and enforcing strict statement timeouts. |
 | 🔑 **Fine-Grained Access Control (FGAC)** | Table/column permission grants with direct-user grant precedence over role grants, column projection/filter gates, and sensitivity masking (`redact`, `last4`, `hash`). |
 | 🧠 **LangGraph Unified Agent Graph** | State-driven workflow routing user queries across Intent Classifier, Source Selector, Database Agent, Document RAG Agent, and Hybrid Merger nodes. |
