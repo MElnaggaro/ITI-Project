@@ -112,19 +112,19 @@ class ChatOrchestrator:
                     document_context=doc_context,
                 ):
                     accumulated_answer += chunk_text
-                    
-                    ans_clean = accumulated_answer
+                    ans_clean = ollama_svc.clean_thinking_tags(accumulated_answer)
                     if "Final answer:" in ans_clean:
                         ans_clean = ans_clean.split("Final answer:")[-1].strip()
                     
                     yield {"event": "answer", "data": ans_clean}
                 
-                state.final_answer = ans_clean
+                state.final_answer = ollama_svc.clean_thinking_tags(accumulated_answer)
         except Exception as e:
             state.final_answer = f"Error during streaming synthesis: {e}"
 
         state = final_response_node(state)
         yield {"event": "done", "state": state}
+
 
     def _synthesize_answer(self, state: AgentState) -> str:
         intent = state.detected_intent

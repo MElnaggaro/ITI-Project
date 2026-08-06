@@ -55,9 +55,14 @@ def classify_request(
     has_conn = bool(database_connection_ids)
     has_kb = bool(knowledge_base_ids)
 
-    # If they didn't select anything, we can't answer data questions
     if not has_conn and not has_kb:
         return "general"
+
+    # Instant short-circuit when user explicitly selects only DB or only KB
+    if has_conn and not has_kb:
+        return "database"
+    if has_kb and not has_conn:
+        return "document"
 
     user_prompt = (
         f"Available Sources:\n"
@@ -67,6 +72,7 @@ def classify_request(
         f"Intent:"
     )
 
+
     try:
         llm = OllamaLLMService()
         if not llm.is_enabled():
@@ -74,8 +80,10 @@ def classify_request(
             
         raw_output = llm.chat_completion(
             messages=[{"role": "user", "content": user_prompt}],
-            system_prompt=CLASSIFIER_SYSTEM_PROMPT
+            system_prompt=CLASSIFIER_SYSTEM_PROMPT,
+            max_tokens=20,
         )
+
         
         # Clean output
         intent = raw_output.strip().lower()
@@ -105,3 +113,4 @@ def classify_request(
         return "document"
     
     return "general"
+

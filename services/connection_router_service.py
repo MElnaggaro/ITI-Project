@@ -62,6 +62,24 @@ class ConnectionRouterService:
         if not connections:
             return connection_ids[0]
 
+        # 1. Fast heuristic keyword match on table names
+        msg_lower = user_message.lower()
+        for conn in connections:
+            tables = list(
+                self.db.scalars(
+                    select(DatabaseTable.table_name)
+                    .where(DatabaseTable.connection_id == conn.id)
+                    .where(DatabaseTable.is_enabled == True)
+                ).all()
+            )
+            for t in tables:
+                t_clean = t.lower()
+                stem = t_clean[:-1] if t_clean.endswith("s") and len(t_clean) > 3 else t_clean
+                if stem in msg_lower:
+                    logger.info(f"Fast heuristic router matched table '{t}' -> connection '{conn.name}'")
+                    return conn.id
+
+        # 2. Fast LLM Routing with qwen2.5:0.5b
         connections_context, mapping = self._build_connections_context(connections)
         user_prompt = ROUTER_USER_PROMPT_TEMPLATE.format(
             connections_context=connections_context,
@@ -71,10 +89,12 @@ class ConnectionRouterService:
         try:
             raw_output = self.llm_service.chat_completion(
                 messages=[{"role": "user", "content": user_prompt}],
-                system_prompt=ROUTER_SYSTEM_PROMPT
+                system_prompt=ROUTER_SYSTEM_PROMPT,
+                max_tokens=20,
             )
+
             
-            # Extract Option integer using regex just in case the LLM outputs extra text
+            # Extract Option integer using regex
             match = re.search(r'\b([1-9][0-9]*)\b', raw_output)
             if match:
                 selected_option = match.group(1)
@@ -87,3 +107,4 @@ class ConnectionRouterService:
         except Exception as e:
             logger.error(f"Failed to route connection via LLM: {e}")
             return connection_ids[0]
+
