@@ -21,6 +21,25 @@ from schemas.resolved_schema import ResolvedSchema
 from schemas.sql_validation import ValidatedQueryPlan
 
 
+from datetime import date as PyDate, datetime as PyDatetime
+from decimal import Decimal
+
+
+def _json_safe(obj: Any) -> Any:
+    """Recursively convert non-serializable database values (UUID, datetime, Decimal, bytes) to JSON-safe primitives."""
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_json_safe(i) for i in obj]
+    elif isinstance(obj, (UUID, PyDatetime, PyDate)):
+        return str(obj)
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    return obj
+
+
 def apply_masking(val: Any, mask_type: str | None) -> Any:
     """Apply masking policy (redact, last4, hash) on a sensitive column value."""
     if val is None or not mask_type:
@@ -96,22 +115,51 @@ class QueryExecutionService:
                     if c_obj.mask_type:
                         col_mask_map[c_name] = c_obj.mask_type
 
+        MAX_RETURNED_ROWS = 1000
+        MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+        is_truncated = False
+
         try:
             engine = create_engine(
                 conn_str,
                 connect_args={"connect_timeout": timeout_seconds},
                 pool_pre_ping=True,
+                execution_options={"isolation_level": "AUTOCOMMIT"},
             )
             with engine.connect() as source_conn:
+                db_type = conn.database_type.lower()
+                # Control 20 & 17: Read-only mode & statement timeouts
+                if "postgres" in db_type:
+                    source_conn.execute(text(f"SET statement_timeout = {timeout_seconds * 1000}"))
+                    source_conn.execute(text("SET TRANSACTION READ ONLY"))
+                elif "mysql" in db_type:
+                    source_conn.execute(text(f"SET SESSION MAX_EXECUTION_TIME = {timeout_seconds * 1000}"))
+                    source_conn.execute(text("SET SESSION TRANSACTION READ ONLY"))
+
                 cursor_result = source_conn.execute(text(validated_plan.final_sql))
                 columns = list(cursor_result.keys())
 
+                current_bytes = 0
                 for raw_row in cursor_result.mappings():
-                    row_dict = {}
+                    if len(rows) >= MAX_RETURNED_ROWS:
+                        is_truncated = True
+                        break
+
+                    row_dict: dict[str, Any] = {}
+                    row_byte_count = 0
                     for col_name, val in raw_row.items():
-                        mask_type = col_mask_map.get(col_name)
-                        row_dict[col_name] = apply_masking(val, mask_type)
+                        col_key = str(col_name)
+                        mask_type = col_mask_map.get(col_key)
+                        masked_val = apply_masking(val, mask_type)
+                        safe_val = _json_safe(masked_val)
+                        row_dict[col_key] = safe_val
+                        row_byte_count += len(str(safe_val))
+
                     rows.append(row_dict)
+                    current_bytes += row_byte_count
+                    if current_bytes > MAX_PAYLOAD_BYTES:
+                        is_truncated = True
+                        break
 
             engine.dispose()
         except Exception as e:
@@ -120,21 +168,8 @@ class QueryExecutionService:
 
         latency_ms = int((time.perf_counter() - start_time) * 1000)
 
-        from datetime import datetime as PyDatetime, date as PyDate
-        from decimal import Decimal
-        def _json_safe(obj: Any) -> Any:
-            if isinstance(obj, dict):
-                return {k: _json_safe(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [_json_safe(i) for i in obj]
-            elif isinstance(obj, (UUID, PyDatetime, PyDate)):
-                return str(obj)
-            elif isinstance(obj, Decimal):
-                return float(obj)
-            return obj
-
         # Sanitized result preview (first 5 rows max)
-        preview_rows = [_json_safe(r) for r in rows[:5]] if rows else []
+        preview_rows = rows[:5] if rows else []
         preview_data = {"columns": columns, "sample_rows": preview_rows} if preview_rows else None
 
         # Record QueryExecution
@@ -169,5 +204,5 @@ class QueryExecutionService:
             rows=rows,
             returned_row_count=len(rows),
             execution_time_ms=latency_ms,
-            is_truncated=False,
+            is_truncated=is_truncated,
         )

@@ -26,9 +26,12 @@ class SQLGeneratorService:
         for tbl_name, tbl in resolved_schema.tables.items():
             col_specs = []
             for col_name, col in tbl.columns.items():
+                if not col.can_read:
+                    continue
                 col_type = col.data_type
                 pk_flag = " (PK)" if col.is_primary_key else ""
-                col_specs.append(f"{col_name}: {col_type}{pk_flag}")
+                mask_flag = f" [MASKED: {col.mask_type}]" if col.mask_type else ""
+                col_specs.append(f"{col_name}: {col_type}{pk_flag}{mask_flag}")
 
             cols_str = ", ".join(col_specs)
             lines.append(f"Table '{tbl.schema_name}.{tbl_name}': {cols_str}")

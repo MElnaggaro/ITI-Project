@@ -42,6 +42,25 @@ def database_agent_node(state: AgentState, db: Session) -> AgentState:
             )
             state.validated_plan = plan
 
+            # Audit validation decision (Control 21)
+            from services.audit_service import AuditService
+            audit_svc = AuditService(db)
+            audit_svc.log_event(
+                context=state.context,
+                action="sql_validation_decision",
+                resource_type="database_connection",
+                resource_id=conn_id,
+                details={
+                    "generated_sql": candidate.candidate_sql,
+                    "normalized_sql": plan.normalized_sql,
+                    "query_type": plan.query_type,
+                    "validation_status": plan.validation_status,
+                    "validation_errors": plan.validation_errors,
+                    "referenced_tables": plan.referenced_tables,
+                    "referenced_columns": plan.referenced_columns,
+                },
+            )
+
             if plan.validation_status == "valid":
                 query_executor = QueryExecutionService(db)
                 envelope = query_executor.execute_plan(

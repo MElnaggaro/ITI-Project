@@ -10,16 +10,74 @@ import sqlglot.expressions as exp
 from schemas.resolved_schema import ResolvedSchema
 from schemas.sql_validation import ValidatedQueryPlan
 
-DISALLOWED_NODE_TYPES = (
-    exp.Insert,
-    exp.Update,
-    exp.Delete,
-    exp.Create,
-    exp.Drop,
-    exp.Alter,
-    exp.Command,
-    exp.Copy,
+_DISALLOWED_CLASS_NAMES = (
+    "Insert",
+    "Update",
+    "Delete",
+    "Create",
+    "Drop",
+    "Alter",
+    "Command",
+    "Copy",
+    "Grant",
+    "Revoke",
+    "Exec",
+    "Execute",
+    "Call",
+    "Attach",
+    "Detach",
+    "Truncate",
+    "TruncateTable",
+    "Use",
+    "Set",
+    "Pragma",
+    "Kill",
+    "Merge",
+    "Lock",
 )
+
+DISALLOWED_NODE_TYPES: tuple[type[exp.Expression], ...] = tuple(
+    getattr(exp, name) for name in _DISALLOWED_CLASS_NAMES if hasattr(exp, name)
+)
+
+SYSTEM_SCHEMAS = frozenset({
+    "information_schema",
+    "pg_catalog",
+    "pg_toast",
+    "sys",
+    "mysql",
+    "performance_schema",
+    "master",
+    "model",
+    "msdb",
+    "tempdb",
+    "sqlite_master",
+    "sqlite_schema",
+})
+
+BLOCKED_FUNCTIONS = frozenset({
+    "version",
+    "pg_read_file",
+    "pg_ls_dir",
+    "pg_stat_file",
+    "pg_sleep",
+    "current_setting",
+    "set_config",
+    "load_file",
+    "into_outfile",
+    "into_dumpfile",
+    "xp_cmdshell",
+    "sleep",
+    "benchmark",
+    "sys_eval",
+    "sys_exec",
+    "openrowset",
+    "opendatasource",
+    "eval",
+    "char",
+    "exec",
+    "execute",
+})
 
 MAX_ROW_LIMIT = 1000
 
@@ -34,7 +92,7 @@ DIALECT_MAP = {
 
 
 class SQLValidatorService:
-    """AST-based SQL validator and security rewriter."""
+    """AST-based SQL validator and security rewriter enforcing Mandatory SQL Security Controls."""
 
     def __init__(self, dialect: str = "postgres") -> None:
         raw_dialect = dialect.strip().lower()
@@ -55,7 +113,7 @@ class SQLValidatorService:
                 validation_errors=["Candidate SQL string is empty."],
             )
 
-        # 1. Reject comments explicitly
+        # 1. Reject comments explicitly (Control 13)
         cleaned_raw = candidate_sql.strip()
         if "--" in cleaned_raw or "/*" in cleaned_raw or "*/" in cleaned_raw:
             return ValidatedQueryPlan(
@@ -68,7 +126,7 @@ class SQLValidatorService:
                 ],
             )
 
-        # 2. Parse SQL candidate
+        # 2. Parse SQL candidate (Control 12 & 13)
         try:
             parsed_statements = sqlglot.parse(candidate_sql, read=self.dialect)
         except Exception as e:
@@ -90,9 +148,30 @@ class SQLValidatorService:
             )
 
         ast = parsed_statements[0]
-        errors: list[str] = []
 
-        # 3. Enforce Read-Only AST
+        # Check for AST level comments
+        if any(node.comments for node in ast.walk()):
+            return ValidatedQueryPlan(
+                generated_sql=candidate_sql,
+                normalized_sql=ast.sql(dialect=self.dialect),
+                query_type="disallowed",
+                validation_status="invalid",
+                validation_errors=["SQL comments detected within query structure are strictly prohibited."],
+            )
+
+        # Handle EXPLAIN statement (Control 15)
+        is_explain = False
+        if cleaned_raw.upper().startswith("EXPLAIN"):
+            is_explain = True
+            inner_sql = cleaned_raw[7:].strip()
+            try:
+                inner_parsed = sqlglot.parse(inner_sql, read=self.dialect)
+                if inner_parsed and inner_parsed[0]:
+                    ast = inner_parsed[0]
+            except Exception:
+                pass
+
+        # 3. Enforce Read-Only AST & Block DDL / Destructive DML (Control 15 & 16)
         if isinstance(ast, DISALLOWED_NODE_TYPES) or any(
             next(ast.find_all(t), None) is not None for t in DISALLOWED_NODE_TYPES
         ):
@@ -102,13 +181,14 @@ class SQLValidatorService:
                 query_type="disallowed",
                 validation_status="invalid",
                 validation_errors=[
-                    "Data modification, procedural commands, and DDL statements "
-                    "are strictly prohibited."
+                    "Data modification, procedural commands, DDL, GRANT/REVOKE, EXEC, COPY, ATTACH, and DETACH statements are strictly prohibited."
                 ],
             )
 
-        # Determine query type
-        if isinstance(ast, exp.Select):
+        # Determine query type (Control 15 - Allowed: SELECT, WITH, EXPLAIN)
+        if is_explain:
+            query_type = "explain"
+        elif isinstance(ast, exp.Select):
             query_type = "select"
         elif isinstance(ast, exp.With):
             query_type = "with"
@@ -120,15 +200,60 @@ class SQLValidatorService:
                 normalized_sql=ast.sql(dialect=self.dialect),
                 query_type="disallowed",
                 validation_status="invalid",
-                validation_errors=["Only SELECT, WITH, and UNION read-only queries are permitted."],
+                validation_errors=["Only SELECT, WITH, UNION, and EXPLAIN read-only queries are permitted by default."],
             )
 
-        # 4. Table & Column Permission Verification
+        # 4. System Schemas and Administrative Functions Verification (Control 14)
+        for table_node in ast.find_all(exp.Table):
+            tbl_name = table_node.name.lower() if table_node.name else ""
+            db_schema = table_node.db.lower() if table_node.db else ""
+            catalog_name = table_node.catalog.lower() if table_node.catalog else ""
+            if (
+                tbl_name in SYSTEM_SCHEMAS
+                or db_schema in SYSTEM_SCHEMAS
+                or catalog_name in SYSTEM_SCHEMAS
+            ):
+                return ValidatedQueryPlan(
+                    generated_sql=candidate_sql,
+                    normalized_sql=ast.sql(dialect=self.dialect),
+                    query_type="disallowed",
+                    validation_status="invalid",
+                    validation_errors=[
+                        f"Access to system schema or system table '{table_node.sql()}' is strictly prohibited."
+                    ],
+                )
+
+        # Administrative / System Function Blocking (Control 14)
+        import re
+        for fn in BLOCKED_FUNCTIONS:
+            pattern = rf"\b{re.escape(fn)}\s*\("
+            if re.search(pattern, candidate_sql, re.IGNORECASE):
+                return ValidatedQueryPlan(
+                    generated_sql=candidate_sql,
+                    normalized_sql=ast.sql(dialect=self.dialect),
+                    query_type="disallowed",
+                    validation_status="invalid",
+                    validation_errors=[
+                        f"Administrative or system function '{fn}' is strictly prohibited."
+                    ],
+                )
+
+        # 5. Table & Column Permission Verification (Control 11)
         referenced_tables: list[str] = []
         referenced_columns: list[str] = []
         applied_filters_meta: list[dict[str, Any]] = []
 
-        tables_in_ast = list(ast.find_all(exp.Table))
+        cte_names = {
+            cte.alias.lower()
+            for cte in ast.find_all(exp.CTE)
+            if cte.alias
+        }
+
+        tables_in_ast = [
+            t for t in ast.find_all(exp.Table)
+            if t.name and t.name.lower() not in cte_names
+        ]
+
         if not tables_in_ast:
             return ValidatedQueryPlan(
                 generated_sql=candidate_sql,
@@ -138,6 +263,7 @@ class SQLValidatorService:
                 validation_errors=["Query does not reference any valid target table."],
             )
 
+        errors: list[str] = []
         for table_node in tables_in_ast:
             tbl_name = table_node.name
             if tbl_name not in resolved_schema.tables:
