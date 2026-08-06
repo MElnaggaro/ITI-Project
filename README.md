@@ -635,9 +635,3 @@ Please ensure that all 89 tests pass (`pytest backend`) and code passes formatti
 Distributed under the **MIT License**. See `LICENSE` for more information.
 
 ---
-
-<div align="center">
-
-**Built with ❤️ for Enterprise Data Governance & AI Accuracy**
-
-</div>
