@@ -12,8 +12,9 @@ from schemas.sql_generation import SQLCandidate
 class SQLGeneratorService:
     """Generic text-to-SQL generation service operating strictly on ResolvedSchema."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash") -> None:
+    def __init__(self, model_name: str = "qwen3.5:4b") -> None:
         self.model_name = model_name
+
 
     def format_schema_prompt_context(self, resolved_schema: ResolvedSchema) -> str:
         """Format permitted tables, columns, data types, PKs, and FKs into a clean prompt string."""

@@ -119,10 +119,18 @@ This platform delivers a **secure, bounded, multi-tenant enterprise orchestratio
                                                       |
                                                       v
                                   +-------------------+-------------------+
-                                  | Platform PostgreSQL Storage DB        |
-                                  | (Tenants, Schema Cache, Citations)    |
-                                  +---------------------------------------+
 ```
+
+*Full system architecture documentation is available in [ARCHITECTURE.md](file:///d:/PROJECTS/ITI%20Project/ARCHITECTURE.md).*
+
+### Architectural Highlights & Component Breakdown
+
+1. **Client & API Gateway**: Frontend dashboard interacting via REST API and EventSource SSE streaming (`POST /api/chat/stream`). Protected by PyJWT, Argon2id, and Fernet master-key encryption.
+2. **LangGraph Chat Orchestrator**: State-driven workflow routing user queries across Intent Classifier (`general`, `database`, `document`, `hybrid`), Source Selector, Database SQL Agent, Document RAG Agent, and Hybrid Merger nodes.
+3. **SQLGlot AST Safety Engine**: Dialect-aware AST validator enforcing read-only queries (`SELECT`), blocking DDL/DML, checking table/column permissions, injecting server-side AST row filters (`WHERE tenant_id = '...'`), and clamping limits (`LIMIT 1000`).
+4. **Bounded Execution Engine**: Executes validated read-only queries across target databases (PostgreSQL, MySQL, SQL Server, Oracle) with column sensitivity masking (`redact`, `last4`, `hash`).
+5. **Data & Vector Storage Persistence**: Dual-layer storage using Platform PostgreSQL 16 (`pgvector`), Qdrant Vector Store (1024-dim), and MinIO tenant-isolated object storage.
+
 
 ---
 
@@ -183,28 +191,29 @@ ITI Project/
 
 ---
 
-## 🤖 AI / ML & LLM Model Evolution
+## 🤖 AI / ML & Local LLM Architecture
 
-### Model Transition: From Qwen (`qwen3.5:4b`) to Gemini (`gemini-2.5-flash`)
+### Primary Local Engine: Qwen 3.5 4B (`qwen3.5:4b`) via Ollama
 
-During phase architecture and initial validation, a local lightweight LLM model—**Qwen 3.5 4B (`qwen3.5:4b`)** via Ollama—was benchmarked as the SQL candidate generator and intent classifier. However, empirical evaluation revealed limitations in lightweight local models when handling production enterprise database workloads:
+The platform is standardized on **Qwen 3.5 4B (`qwen3.5:4b`)** running via a local **Ollama** daemon for fast, privacy-preserving, enterprise Text-to-SQL query generation and RAG intent classification.
 
 ```
 +-----------------------------------------------------------------------------------------------+
-| Benchmark Metric           | Qwen 3.5 4B (Ollama Local)    | Gemini 2.5 Flash (Primary Engine) |
-+----------------------------+-------------------------------+-----------------------------------+
-| Multi-Table Join Accuracy  | 74.2%                         | 99.8%                             |
-| AST Safety Compliance      | 88.5%                         | 100.0%                            |
-| Invalid Column Projection  | High (Hallucinated columns)   | Zero                              |
-| Multi-Document RAG Score   | 71.0%                         | 98.4%                             |
-| SQL Generation Latency     | ~1.80s (CPU Bound)            | ~0.35s                            |
+| AI Engine Parameter        | Platform Specification                                           |
++----------------------------+------------------------------------------------------------------+
+| Local LLM Model            | Qwen 3.5 4B (qwen3.5:4b)                                         |
+| Fast Classifier Model      | Qwen 2.5 0.5B (qwen2.5:0.5b)                                     |
+| LLM Host Endpoint          | http://host.docker.internal:11434 / http://localhost:11434       |
+| Embedding Dimension        | 1024-Dimension Float Vectors (L2 Normalized)                     |
+| Vector Store Engine        | Qdrant 1.12+ (Tenant Payload Scoped)                             |
+| AST Safety Validator       | SQLGlot (Dialect-aware AST Parser & Row-Filter Injector)         |
 +-----------------------------------------------------------------------------------------------+
 ```
 
-### Why Gemini 2.5 Flash?
-1. **AST Strictness**: Generates clean, standard SQL dialect representations without markdown wrapping errors or backtick hallucinations.
-2. **Context Window & RAG Synthesis**: Easily ingests full database catalog metadata and dense multi-page document excerpts simultaneously for accurate hybrid merging.
-3. **Graceful Fallback Pipeline**: If the primary Gemini LLM service is offline or rate-limited, the orchestrator gracefully degrades to structured data envelopes without exposing raw trace errors to the user.
+### Local AI Pipeline Capabilities
+1. **Dialect-Aware Text-to-SQL**: Generates clean, standard SQL queries for PostgreSQL, MySQL, SQL Server, and Oracle.
+2. **Deterministic Fallback Pipeline**: If Ollama or local LLM connection is offline, the orchestrator gracefully degrades to structured data envelopes without crashing the SSE stream.
+
 
 ### Embedding & Vector Search Pipeline
 - **Embedding Dimensions**: Standardized on **1024-dimension float vectors** (L2-normalized).
