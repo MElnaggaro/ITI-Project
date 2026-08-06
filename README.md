@@ -11,7 +11,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_(pgvector)-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
-[![Build Status](https://img.shields.io/badge/Tests-87%20Passed%20(100%25)-success?style=for-the-badge&logo=pytest&logoColor=white)](#-performance--benchmarks)
+[![Build Status](https://img.shields.io/badge/Tests-89%20Passed%20(100%25)-success?style=for-the-badge&logo=pytest&logoColor=white)](#-performance--benchmarks)
 
 </div>
 
@@ -31,6 +31,7 @@
 - [Performance & Benchmarks](#-performance--benchmarks)
 - [Challenges & Engineering Decisions](#-challenges--engineering-decisions)
 - [Future Roadmap](#-future-roadmap)
+- [Individual Work Statement & Acknowledgements](#-individual-work-statement--acknowledgements)
 - [Contribution Guide](#-contribution-guide)
 - [License](#-license)
 
@@ -445,6 +446,24 @@ pytest backend
 
 ---
 
+## 🎓 Individual Work Statement & Acknowledgements
+
+### Declaration of Independence
+This project and assignment submission was completed independently as an individual body of work within four days. All architectural decisions, software design patterns, system implementations, AST security rule engines, dynamic database catalog introspection pipelines, automated test suites (89 passing tests), and written technical documentation were developed exclusively by the author.
+
+### Acknowledgement of External Code & Reference Material
+Public documentation, open-source frameworks, standards, and references consulted during the engineering of this platform are acknowledged below in compliance with Requirement 16:
+
+1. **SQLGlot AST Engine**: Dialect-aware SQL parsing, Abstract Syntax Tree traversal, and row-filter AST transformation rules inspired by the official [SQLGlot Documentation & GitHub Repository](https://github.com/tobymao/sqlglot).
+2. **FastAPI & Async IO**: RESTful API design, dependency injection patterns, middleware architecture, and Server-Sent Events (SSE) streaming referenced from [FastAPI Official Documentation](https://fastapi.tiangolo.com/).
+3. **LangGraph Agent Workflows**: Stateful graph orchestrator, conditional node routing, and multi-intent execution state management referenced from [LangChain LangGraph Docs](https://python.langchain.com/docs/langgraph/).
+4. **Qdrant Vector Database**: Vector payload filtering (`tenant_id`, `knowledge_base_id`) and L2-normalized 1024-dimension float similarity search implementation based on [Qdrant Developer Documentation](https://qdrant.tech/documentation/).
+5. **Open Source LLM & Embeddings**: Local inference via [Ollama](https://ollama.com/) utilizing open-weights **Qwen 3.5 4B** (`qwen3.5:4b`) and **FastEmbed** dense embedding models.
+6. **SQLAlchemy 2.0 & Alembic**: Database ORM model mappings, session context managers, and migration scripts based on [SQLAlchemy Documentation](https://docs.sqlalchemy.org/en/20/).
+7. **Security & Cryptography Standards**: Password hashing via **Argon2id**, JWT token verification via **PyJWT**, and tenant credential encryption via **Cryptography Fernet**.
+
+---
+
 ## 🤝 Contribution Guide
 
 Contributions are welcome! Follow these steps to contribute:
@@ -455,7 +474,7 @@ Contributions are welcome! Follow these steps to contribute:
 4. **Push to the Branch**: `git push origin feature/amazing-feature`
 5. **Open a Pull Request**
 
-Please ensure that all 87 tests pass (`pytest backend`) and code passes formatting rules (`ruff check backend`) before submitting PRs.
+Please ensure that all 89 tests pass (`pytest backend`) and code passes formatting rules (`ruff check backend`) before submitting PRs.
 
 ---
 
