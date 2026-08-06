@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from sqlalchemy.orm import Session
+
 
 from agents.classifier import classify_request
 from agents.state import AgentState
@@ -94,7 +96,14 @@ class ChatOrchestrator:
 
         sql_context = None
         if state.execution_envelope and state.execution_envelope.rows:
-            sql_context = f"Generated SQL: {state.generated_sql}\nRows ({state.execution_envelope.returned_row_count}): {state.execution_envelope.rows[:5]}"
+            rows_sample = state.execution_envelope.rows[:25]
+            json_rows = json.dumps(rows_sample, default=str, ensure_ascii=False)
+            sql_context = (
+                f"Executed SQL: {state.generated_sql}\n"
+                f"Total Returned Rows: {state.execution_envelope.returned_row_count}\n"
+                f"Returned Results Data:\n{json_rows}"
+            )
+
 
         doc_context = None
         if state.retrieved_evidence:
@@ -134,7 +143,14 @@ class ChatOrchestrator:
 
         sql_context = None
         if state.execution_envelope and state.execution_envelope.rows:
-            sql_context = f"Generated SQL: {state.generated_sql}\nRows ({state.execution_envelope.returned_row_count}): {state.execution_envelope.rows[:5]}"
+            rows_sample = state.execution_envelope.rows[:25]
+            json_rows = json.dumps(rows_sample, default=str, ensure_ascii=False)
+            sql_context = (
+                f"Executed SQL: {state.generated_sql}\n"
+                f"Total Returned Rows: {state.execution_envelope.returned_row_count}\n"
+                f"Returned Results Data:\n{json_rows}"
+            )
+
 
         doc_context = None
         if state.retrieved_evidence:

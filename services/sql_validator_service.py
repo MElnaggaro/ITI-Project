@@ -147,10 +147,16 @@ class SQLValidatorService:
                     referenced_tables.append(tbl_name)
 
         # Column-level permission verification
+        select_aliases = {
+            alias_node.alias.lower()
+            for alias_node in ast.find_all(exp.Alias)
+            if alias_node.alias
+        }
+
         columns_in_ast = list(ast.find_all(exp.Column))
         for col_node in columns_in_ast:
             c_name = col_node.name
-            if not c_name or c_name == "*":
+            if not c_name or c_name == "*" or c_name.lower() in select_aliases:
                 continue
 
             tbl_name = col_node.table
@@ -167,6 +173,7 @@ class SQLValidatorService:
                     ref_col_str = f"{tbl_name}.{c_name}"
                     if ref_col_str not in referenced_columns:
                         referenced_columns.append(ref_col_str)
+
 
         if errors:
             return ValidatedQueryPlan(

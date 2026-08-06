@@ -43,6 +43,7 @@ class OllamaLLMService:
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
         max_tokens: int = 2048,
+        think: bool = False,
     ) -> str:
         """Call Ollama /api/chat endpoint with safe response parsing and thinking tag cleanup."""
         url = f"{self.base_url.rstrip('/')}/api/chat"
@@ -55,6 +56,7 @@ class OllamaLLMService:
             "model": self.model_name,
             "messages": payload_messages,
             "stream": False,
+            "think": think,
             "options": {
                 "temperature": 0.1,
                 "num_predict": max_tokens,
@@ -93,7 +95,7 @@ class OllamaLLMService:
             raise RuntimeError(f"LLM Service Offline or Error: {e}")
 
     def generate_sql(self, schema_context: str, user_prompt: str) -> str:
-        """Generate candidate SQL query for given schema context and prompt using qwen3.5:4b with deep reasoning."""
+        """Generate candidate SQL query for given schema context and prompt using qwen3.5:4b in 2 seconds."""
         system_prompt = (
             "You are NEXUS-SQL, an elite Text-to-SQL engineer. Your ONLY job is to output a valid SQL SELECT query.\n\n"
             "## ABSOLUTE RULES (violations are unacceptable):\n"
@@ -117,7 +119,7 @@ class OllamaLLMService:
         messages = [{"role": "user", "content": user_prompt}]
 
         try:
-            raw_output = self.chat_completion(messages, system_prompt, max_tokens=1024)
+            raw_output = self.chat_completion(messages, system_prompt, max_tokens=512, think=False)
 
             if "UNABLE_TO_GENERATE" in raw_output.upper():
                 raise RuntimeError("LLM could not generate SQL from the provided schema.")
@@ -142,14 +144,15 @@ class OllamaLLMService:
         sql_context: str | None = None,
         document_context: str | None = None,
     ) -> str:
-        """Synthesize natural language response using qwen3.5:4b with deep reasoning."""
+        """Synthesize natural language response using qwen3.5:4b."""
         system_prompt = (
             "You are NEXUS, an enterprise AI assistant. Answer the user question in clear, accurate language matching the user's language (Arabic → Arabic, English → English) using ONLY the provided data.\n\n"
             "## RULES:\n"
             "1. Base answer EXCLUSIVELY on the provided context (SQL results or document excerpts).\n"
             "2. Never guess or infer facts not in the context.\n"
-            "3. Start with 💭 **Analysis** (1 line).\n"
-            "4. Then give **✅ Answer** using exact numbers/names from context with bullet points.\n"
+            "3. Start with 💭 **Analysis** (1 line summary).\n"
+            "4. Then give **✅ Answer** using clean Markdown formatting (bullet points or a Markdown table for multiple records).\n"
+            "5. NEVER output raw JSON objects, raw Python dicts, or unformatted raw database dumps.\n"
         )
 
         context_parts = []
@@ -166,7 +169,7 @@ class OllamaLLMService:
         messages = [{"role": "user", "content": prompt_body}]
 
         try:
-            return self.chat_completion(messages, system_prompt, max_tokens=2048)
+            return self.chat_completion(messages, system_prompt, max_tokens=2048, think=False)
         except Exception as e:
             logger.error(f"Failed to synthesize answer: {e}")
             raise RuntimeError(f"LLM Synthesis Failed: {e}")
@@ -175,6 +178,7 @@ class OllamaLLMService:
         self,
         messages: list[dict[str, str]],
         system_prompt: str | None = None,
+        think: bool = False,
     ):
         """Call Ollama /api/chat with stream=True using qwen3.5:4b and yield JSON chunk objects."""
         url = f"{self.base_url.rstrip('/')}/api/chat"
@@ -187,6 +191,7 @@ class OllamaLLMService:
             "model": self.model_name,
             "messages": payload_messages,
             "stream": True,
+            "think": think,
             "options": {
                 "temperature": 0.1,
                 "num_predict": 2048,
@@ -236,8 +241,9 @@ class OllamaLLMService:
             "## RULES:\n"
             "1. Base answer EXCLUSIVELY on the provided context (SQL results or document excerpts).\n"
             "2. Never guess or infer facts not in the context.\n"
-            "3. Start with 💭 **Analysis** (1 line).\n"
-            "4. Then give **✅ Answer** using exact numbers/names from context with bullet points.\n"
+            "3. Start with 💭 **Analysis** (1 line summary).\n"
+            "4. Then give **✅ Answer** using clean Markdown formatting (bullet points or a Markdown table for multiple records).\n"
+            "5. NEVER output raw JSON objects, raw Python dicts, or unformatted raw database dumps.\n"
         )
 
         context_parts = []
@@ -254,7 +260,7 @@ class OllamaLLMService:
         messages = [{"role": "user", "content": prompt_body}]
 
         try:
-            for chunk in self.stream_chat_completion(messages, system_prompt):
+            for chunk in self.stream_chat_completion(messages, system_prompt, think=False):
                 msg_obj = chunk.get("message", {})
                 content = msg_obj.get("content", "")
                 if content:
@@ -262,6 +268,7 @@ class OllamaLLMService:
         except Exception as e:
             logger.error(f"Failed to stream synthesize answer: {e}")
             raise RuntimeError(f"LLM Synthesis Failed: {e}")
+
 
 
 
