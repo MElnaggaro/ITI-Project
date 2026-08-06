@@ -300,15 +300,18 @@
       elements.chatConnectionSelectedText.textContent = '-- No Database Connection --';
     } else {
       state.connections.forEach((conn) => {
+        const isDefaultSales = conn.name.includes('Sales') || conn.name.includes('E-Commerce');
         optionsHtml += `
           <div>
-            <input type="checkbox" value="${conn.id}" id="conn_${conn.id}" checked>
+            <input type="checkbox" value="${conn.id}" id="conn_${conn.id}" ${isDefaultSales ? 'checked' : ''}>
             <label for="conn_${conn.id}">${escapeHtml(conn.name)}</label>
           </div>
         `;
       });
-      elements.chatConnectionSelectedText.textContent = state.connections.length === 1 ? state.connections[0].name : `${state.connections.length} Databases Selected`;
+      const selectedConn = state.connections.find(c => c.name.includes('Sales') || c.name.includes('E-Commerce'));
+      elements.chatConnectionSelectedText.textContent = selectedConn ? selectedConn.name : (state.connections.length === 1 ? state.connections[0].name : `${state.connections.length} Databases Selected`);
     }
+
     
     elements.chatConnectionOptions.innerHTML = optionsHtml;
     
@@ -421,13 +424,14 @@
       state.knowledgeBases.forEach((kb) => {
         optionsHtml += `
           <div>
-            <input type="checkbox" value="${kb.id}" id="kb_${kb.id}" checked>
+            <input type="checkbox" value="${kb.id}" id="kb_${kb.id}">
             <label for="kb_${kb.id}">${escapeHtml(kb.name)}</label>
           </div>
         `;
       });
-      elements.chatKbSelectedText.textContent = state.knowledgeBases.length === 1 ? state.knowledgeBases[0].name : `${state.knowledgeBases.length} KBs Selected`;
+      elements.chatKbSelectedText.textContent = '0 KBs Selected';
     }
+
 
     elements.chatKbOptions.innerHTML = optionsHtml;
     

@@ -18,12 +18,10 @@ def database_agent_node(state: AgentState, db: Session) -> AgentState:
         return state
 
     try:
-        # Route to the best connection if multiple are provided
-        if len(state.database_connection_ids) > 1:
-            router = ConnectionRouterService(db)
-            conn_id = router.select_best_connection(state.user_message, state.database_connection_ids)
-        else:
-            conn_id = state.database_connection_ids[0]
+        # Route to the best connection (including active tenant fallback)
+        router = ConnectionRouterService(db)
+        conn_id = router.select_best_connection(state.user_message, state.database_connection_ids)
+
             
         if not conn_id:
             state.error_message = "No valid database connection could be selected."

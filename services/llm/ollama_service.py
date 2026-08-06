@@ -106,15 +106,18 @@ class OllamaLLMService:
             "5. NEVER use backticks (`). Use standard unquoted identifiers or PostgreSQL double quotes (\") only.\n"
             "6. Default to LIMIT 25 unless the user specifies otherwise.\n"
             "7. If the schema does NOT contain the tables or columns needed to answer the question, output exactly: UNABLE_TO_GENERATE\n"
-            "8. Always use ILIKE instead of = for string comparisons in WHERE clauses to ensure case insensitivity.\n"
+            "8. For string comparisons in WHERE clauses, use column ILIKE 'pattern' (e.g. category ILIKE 'Audio'). NEVER write WHERE ILIKE 'value'.\n"
             "9. NEVER use subqueries like WHERE salary = (SELECT MAX(salary)...). ALWAYS use ORDER BY column DESC LIMIT 1.\n\n"
             "## FEW-SHOT EXAMPLES:\n"
+            "User: Show me all products in the Audio category with their prices\n"
+            "SQL: SELECT name, price FROM products WHERE category ILIKE 'Audio'\n\n"
             "User: Who is the highest paid employee and what is their salary?\n"
             "SQL: SELECT first_name, last_name, salary FROM employees ORDER BY salary DESC LIMIT 1\n\n"
             "User: Show me the top 3 most expensive products\n"
             "SQL: SELECT name, price FROM products ORDER BY price DESC LIMIT 3\n\n"
             f"Schema Context:\n{schema_context}\n"
         )
+
 
         messages = [{"role": "user", "content": user_prompt}]
 

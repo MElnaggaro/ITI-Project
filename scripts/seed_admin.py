@@ -149,11 +149,11 @@ def seed() -> None:
 
         # 6. Seed & Index Files into Qdrant Vector Store
         files_to_seed = [
-            "Text_to_SQL_and_Document_Chat_Assignment.pdf",
-            "large_knowledge_base.txt",
+            "large_knowledge_base_updated.txt",
             "test_kb_doc1.txt",
             "test_kb_data2.csv"
         ]
+
         
         file_repo = FileRepository(session)
         file_svc = FileService(session)
