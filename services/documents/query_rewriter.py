@@ -18,12 +18,15 @@ class QueryRewriterService:
 
             ollama_svc = OllamaLLMService()
             if ollama_svc.is_enabled():
-                prompt = (
-                    "Rephrase the following user search query into 1-2 concise, keyphrase-dense sentences "
-                    f"optimized for vector search retrieval in a technical knowledge base. Query: '{clean_query}'"
+                system_prompt = (
+                    "You are a search query optimizer. Your job is to extract the most important keywords "
+                    "from the user's question to be used in a vector search. Output ONLY space-separated keywords. "
+                    "No conversational text, no formatting."
                 )
-                rewritten = ollama_svc.synthesize_answer(user_message=prompt, intent="document")
-                if rewritten and len(rewritten) > 5:
+                messages = [{"role": "user", "content": f"Query: '{clean_query}'"}]
+                rewritten = ollama_svc.chat_completion(messages=messages, system_prompt=system_prompt)
+                
+                if rewritten and len(rewritten) > 2:
                     return rewritten.strip()
         except Exception:
             pass
