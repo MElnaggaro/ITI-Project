@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Text-to-SQL & Document Chat Platform",
+    "title": "FusionIsExist Platform",
     "version": "0.1.0"
   },
   "paths": {

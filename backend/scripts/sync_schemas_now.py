@@ -22,7 +22,7 @@ def sync_pending_connections() -> None:
         import psycopg
     except ImportError:
         print("❌ Error: This script must be run INSIDE the Docker container.")
-        print("Run it using: docker exec text-to-sql-platform-api-1 python scripts/sync_schemas_now.py")
+        print("Run it using: docker exec fusionisexist-api-1 python scripts/sync_schemas_now.py")
         sys.exit(1)
         
     engine = create_engine("postgresql+psycopg://postgres:postgres@postgres:5432/platform_db")

@@ -1,4 +1,4 @@
-### Multi-Tenant Text-to-SQL & Document Chat Platform API Example Requests
+### FusionIsExist Platform API Example Requests
 @host = http://localhost:8000
 @token = YOUR_JWT_ACCESS_TOKEN_HERE
 

@@ -1,6 +1,6 @@
 /**
  * FAEA FRONTEND AI EXPERIENCE ARCHITECTURE — MAIN APPLICATION LOGIC
- * Multi-Tenant Text-to-SQL & Document Chat Platform Client
+ * FusionIsExist — Multi-Tenant Text-to-SQL & Document Chat Platform Client
  */
 
 (function () {

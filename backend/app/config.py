@@ -23,7 +23,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Text-to-SQL Platform"
+    app_name: str = "FusionIsExist Platform"
     app_environment: EnvironmentName = Field(
         default="development",
         validation_alias=AliasChoices("APP_ENV", "APP_ENVIRONMENT"),

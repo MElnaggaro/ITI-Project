@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ Multi-Tenant Text-to-SQL & Document Chat Platform
+# ⚡ FusionIsExist — Multi-Tenant Text-to-SQL & Document Chat Platform
 
 **Enterprise-grade Hybrid AI Platform combining Read-Only Text-to-SQL Query Generation over Live Databases with High-Precision Retrieval-Augmented Generation (RAG) across Knowledge Documents.**
 
@@ -138,7 +138,7 @@ This platform delivers a **secure, bounded, multi-tenant enterprise orchestratio
 ## 📁 Repository Structure
 
 ```
-ITI Project/
+FusionIsExist/
 ├── backend/                        # Backend Application Source Root
 │   ├── agents/                     # LangGraph Agent Workflow
 │   │   ├── nodes/                  # Modular state graph nodes (Classifier, DB Agent, RAG, Merger)
@@ -242,7 +242,7 @@ The platform is standardized on **Qwen 3.5 4B (`qwen3.5:4b`)** running via a loc
 1. **Clone the Repository**:
    ```bash
    git clone <repository-url>
-   cd "ITI Project"
+   cd "FusionIsExist"
    ```
 
 2. **Setup Environment Configuration**:
@@ -308,14 +308,14 @@ docker-compose ps
 *Expected Output:*
 ```
 NAME                             STATUS
-text-to-sql-platform-api-1        Healthy
-text-to-sql-platform-worker-1     Healthy
-text-to-sql-platform-postgres-1   Healthy
-text-to-sql-platform-redis-1      Healthy
-text-to-sql-platform-qdrant-1     Healthy
-text-to-sql-platform-minio-1      Healthy
-text-to-sql-platform-prometheus-1 Running
-text-to-sql-platform-grafana-1    Running
+fusionisexist-api-1        Healthy
+fusionisexist-worker-1     Healthy
+fusionisexist-postgres-1   Healthy
+fusionisexist-redis-1      Healthy
+fusionisexist-qdrant-1     Healthy
+fusionisexist-minio-1      Healthy
+fusionisexist-prometheus-1 Running
+fusionisexist-grafana-1    Running
 ```
 
 To view logs:
