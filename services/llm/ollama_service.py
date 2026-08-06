@@ -195,3 +195,89 @@ class OllamaLLMService:
         except Exception as e:
             logger.error(f"Failed to synthesize answer with {self.model_name}: {e}")
             raise RuntimeError(f"LLM Synthesis Failed: {e}")
+
+    def stream_chat_completion(self, messages: list[dict[str, str]], system_prompt: str | None = None):
+        """Call Ollama /api/chat with stream=True and yield JSON chunk objects."""
+        url = f"{self.base_url.rstrip('/')}/api/chat"
+        payload_messages = []
+        if system_prompt:
+            payload_messages.append({"role": "system", "content": system_prompt})
+        payload_messages.extend(messages)
+
+        body = {
+            "model": self.model_name,
+            "messages": payload_messages,
+            "stream": True,
+            "options": {
+                "temperature": 0.1,
+            },
+        }
+
+        data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                for line in resp:
+                    if line:
+                        chunk = json.loads(line.decode("utf-8"))
+                        yield chunk
+        except Exception as e:
+            logger.error(f"Ollama API streaming error: {e}")
+            raise RuntimeError(f"LLM Service Offline or Error: {e}")
+
+    def stream_synthesize_answer(
+        self,
+        user_message: str,
+        intent: str,
+        sql_context: str | None = None,
+        document_context: str | None = None,
+    ):
+        """Synthesize answer and yield text chunks."""
+        system_prompt = (
+            "You are NEXUS, an Enterprise AI Assistant. Your job is to answer the user's question using ONLY the data provided below.\n\n"
+            "## CRITICAL GROUNDING RULES (NEVER VIOLATE):\n"
+            "1. Your answer MUST be based EXCLUSIVELY on the provided context data (SQL results or document excerpts).\n"
+            "2. NEVER make up, guess, or infer numbers, names, dates, or facts that are not explicitly in the context.\n"
+            "3. If SQL query results show a count of 1, say '1'. If results show 3 rows, describe those 3 rows. Use the EXACT data.\n"
+            "4. If document excerpts mention specific values (e.g., '20 days PTO', 'AES-256'), use those EXACT values.\n"
+            "5. If the provided context does not contain enough information, say 'The available data does not contain this information.'\n"
+            "6. NEVER use your general knowledge to supplement or override the provided context data.\n\n"
+            "## RESPONSE FORMAT:\n"
+            "1. Start with a brief 💭 **Analysis** (1-2 lines: what data source you used and what you found).\n"
+            "2. Then give the **✅ Answer** with the direct, specific answer using the exact data from the context.\n"
+            "3. Use **bold** for key numbers and facts.\n"
+            "4. Use bullet points (•) for listing items.\n"
+            "5. For document answers: cite [Document Name, Page X].\n"
+            "6. Match the user's language (Arabic → Arabic, English → English).\n"
+            "7. Keep the answer concise and focused. Do not ramble or pad with generic information.\n"
+            "8. Never output raw SQL, JSON, or code blocks unless asked.\n"
+        )
+
+        context_parts = []
+        if sql_context:
+            context_parts.append(f"📊 Database Query Results:\n{sql_context}")
+        if document_context:
+            context_parts.append(f"📄 Document Knowledge Context:\n{document_context}")
+
+        prompt_body = f"User Question: {user_message}\n\n"
+        if context_parts:
+            prompt_body += "\n\n".join(context_parts) + "\n\n"
+        prompt_body += "Analyze the above context and provide a well-structured answer following the format rules."
+
+        messages = [{"role": "user", "content": prompt_body}]
+
+        try:
+            for chunk in self.stream_chat_completion(messages, system_prompt):
+                msg_obj = chunk.get("message", {})
+                content = msg_obj.get("content", "")
+                if content:
+                    yield content
+        except Exception as e:
+            logger.error(f"Failed to stream synthesize answer with {self.model_name}: {e}")
+            raise RuntimeError(f"LLM Synthesis Failed: {e}")

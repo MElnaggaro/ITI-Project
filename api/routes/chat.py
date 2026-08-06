@@ -186,11 +186,140 @@ def stream_chat(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Execute streaming SSE chat response with Section 9 response contract framing."""
-    chat_res = _execute_chat(payload, context, db)
+    conv = _get_or_create_conversation(db, context, payload.conversation_id)
+    user_msg_id = uuid4()
+    asst_msg_id = uuid4()
+
+    msg_repo = MessageRepository(db)
+    citation_service = CitationService(db)
+
+    # Persist User Prompt Message
+    user_msg = Message(
+        id=user_msg_id,
+        tenant_id=context.tenant_id,
+        conversation_id=conv.id,
+        role="user",
+        message_type="text",
+        content=payload.message,
+        status="completed",
+    )
+    msg_repo.create(user_msg)
+
+    # Persist Assistant Message Shell
+    asst_msg = Message(
+        id=asst_msg_id,
+        tenant_id=context.tenant_id,
+        conversation_id=conv.id,
+        parent_message_id=user_msg_id,
+        role="assistant",
+        message_type="text",
+        content="",
+        status="processing",
+    )
+    msg_repo.create(asst_msg)
+    db.commit()
 
     def _event_generator():
-        yield f"data: {json.dumps({'event': 'intent', 'intent': chat_res.intent})}\n\n"
-        yield f"data: {json.dumps({'event': 'answer', 'text': chat_res.answer})}\n\n"
+        # Because the generator runs in a separate background thread (StreamingResponse), 
+        # we need to open a local DB session or use the existing one carefully.
+        # It's safer to run it here with the existing db since FastAPI keeps it open until the stream ends.
+        state = AgentState(
+            context=context,
+            conversation_id=conv.id,
+            message_id=asst_msg_id,
+            user_message=payload.message,
+            database_connection_ids=payload.database_connection_ids,
+            knowledge_base_ids=payload.knowledge_base_ids,
+        )
+
+        orchestrator = ChatOrchestrator(db)
+        final_state = None
+
+        try:
+            for event in orchestrator.stream_run(state):
+                if event["event"] == "intent":
+                    yield f"data: {json.dumps({'event': 'intent', 'intent': event['data']})}\n\n"
+                elif event["event"] == "answer":
+                    yield f"data: {json.dumps({'event': 'answer', 'text': event['data']})}\n\n"
+                elif event["event"] == "done":
+                    final_state = event["state"]
+        except Exception as e:
+            # Handle catastrophic failure gracefully in the stream
+            yield f"data: {json.dumps({'event': 'answer', 'text': f'Stream error: {e}'})}\n\n"
+            return
+
+        if not final_state:
+            return
+
+        # 3. Update Assistant Answer Message
+        now = datetime.now(UTC)
+        asst_msg.content = final_state.final_answer
+        asst_msg.detected_intent = final_state.detected_intent
+        sanitized_sources = [
+            {k: (str(v) if isinstance(v, UUID) else v) for k, v in src.items()}
+            if isinstance(src, dict) else src
+            for src in final_state.sources_used
+        ]
+        asst_msg.selected_sources = sanitized_sources
+        asst_msg.status = "completed"
+        db.commit()
+
+        # 4. Update Conversation Timestamps
+        conv.last_message_at = now
+        conv.updated_at = now
+        db.commit()
+
+        # 5. Persist Message Citations
+        if final_state.sources_used:
+            citation_service.create_citations_for_message(
+                context=context,
+                message_id=asst_msg_id,
+                sources=final_state.sources_used,
+            )
+            db.commit()
+
+        # Build Section 9 Contract fields
+        sources_used_set = set()
+        citations_list: list[Citation] = []
+
+        for src in final_state.sources_used:
+            c_type = src.get("citation_type")
+            if c_type == "sql":
+                sources_used_set.add("database")
+                citations_list.append(
+                    Citation(
+                        type="database",
+                        table=src.get("table", "unknown"),
+                    )
+                )
+            elif c_type == "document":
+                sources_used_set.add("documents")
+                citations_list.append(
+                    Citation(
+                        type="document",
+                        file_name=src.get("file_name", src.get("title", "document")),
+                        page=src.get("page_number"),
+                    )
+                )
+
+        sql_detail: SQLDetail | None = None
+        if final_state.execution_envelope and final_state.validated_plan:
+            sql_detail = SQLDetail(
+                query_execution_id=final_state.execution_envelope.execution_id,
+                query=final_state.validated_plan.final_sql or final_state.validated_plan.generated_sql,
+                row_count=final_state.execution_envelope.returned_row_count,
+            )
+
+        chat_res = ChatResponse(
+            message_id=asst_msg_id,
+            conversation_id=conv.id,
+            answer=final_state.final_answer,
+            intent=cast(IntentType, final_state.detected_intent),
+            sources_used=sorted(list(sources_used_set)),
+            sql=sql_detail,
+            citations=citations_list,
+        )
+
         done_payload = json.dumps({"event": "done", "response": chat_res.model_dump(mode="json")})
         yield f"data: {done_payload}\n\n"
 
